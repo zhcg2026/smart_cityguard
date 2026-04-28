@@ -1201,7 +1201,7 @@ CREATE TABLE evaluation_area (
     repeat_rate DECIMAL(5,2) COMMENT '重复案件率',
 
     total_score DECIMAL(5,2) COMMENT '综合得分',
-    rank INT COMMENT '排名',
+    `rank` INT COMMENT '排名',
 
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1249,7 +1249,7 @@ CREATE TABLE evaluation_dept (
     deduction_reason VARCHAR(500) COMMENT '扣分原因',
 
     total_score DECIMAL(5,2) COMMENT '综合得分',
-    rank INT COMMENT '排名',
+    `rank` INT COMMENT '排名',
 
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1283,7 +1283,7 @@ CREATE TABLE evaluation_position (
     error_rate DECIMAL(5,2) COMMENT '差错率',
 
     total_score DECIMAL(5,2) COMMENT '综合得分',
-    rank INT COMMENT '排名',
+    `rank` INT COMMENT '排名',
 
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1328,7 +1328,7 @@ CREATE TABLE evaluation_collector (
     self_handle_count INT DEFAULT 0 COMMENT '自行处置数',
 
     total_score DECIMAL(5,2) COMMENT '综合得分',
-    rank INT COMMENT '排名',
+    `rank` INT COMMENT '排名',
 
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
