@@ -21,7 +21,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setCharacterEncoding("UTF-8");
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 
-        Result<Void> result = Result.error(401, "未授权，请登录");
+        Result<Void> result = Result.fail(401, "未授权，请登录");
         ObjectMapper mapper = new ObjectMapper();
         mapper.writeValue(response.getOutputStream(), result);
     }

@@ -2,6 +2,7 @@ package com.cityguard.auth.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.cityguard.auth.entity.SysUser;
+import com.cityguard.auth.entity.SysDepartment;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 

@@ -1,0 +1,11 @@
+com\cityguard\config\mapper\TimeLimitRuleMapper.class
+com\cityguard\config\service\ConfigService.class
+com\cityguard\config\entity\CaseStandard.class
+com\cityguard\config\entity\TimeLimitRule.class
+com\cityguard\config\mapper\CaseStandardMapper.class
+com\cityguard\config\mapper\CategoryBigMapper.class
+com\cityguard\config\service\impl\ConfigServiceImpl.class
+com\cityguard\config\mapper\CategorySmallMapper.class
+com\cityguard\config\controller\ConfigController.class
+com\cityguard\config\entity\CategoryBig.class
+com\cityguard\config\entity\CategorySmall.class

@@ -4,6 +4,12 @@ package com.cityguard.common.constant;
  * 案件状态常量
  */
 public class CaseStatusConstant {
+    // 案件来源
+    public static final Integer SOURCE_COLLECTOR_APP = 1;    // 采集员APP
+    public static final Integer SOURCE_PHONE = 2;            // 电话
+    public static final Integer SOURCE_WEBSITE = 3;          // 网站
+    public static final Integer SOURCE_OTHER = 4;            // 其他
+
     // 上报阶段
     public static final String REPORTED = "reported";           // 上报
     public static final String PENDING_ACCEPT = "pending_accept"; // 待立案

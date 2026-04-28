@@ -1,5 +1,6 @@
 package com.cityguard.auth.security;
 
+import com.cityguard.auth.entity.LoginUser;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

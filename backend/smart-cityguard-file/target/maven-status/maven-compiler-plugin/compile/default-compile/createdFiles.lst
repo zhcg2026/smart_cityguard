@@ -1,0 +1,4 @@
+com\cityguard\file\controller\FileController.class
+com\cityguard\file\service\impl\FileServiceImpl.class
+com\cityguard\file\config\MinioConfig.class
+com\cityguard\file\service\FileService.class
