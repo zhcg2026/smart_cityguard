@@ -1,0 +1,126 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {}
+  },
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "智慧城管",
+        "navigationBarBackgroundColor": "#409eff",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/report/index",
+      "style": {
+        "navigationBarTitleText": "问题上报",
+        "navigationBarBackgroundColor": "#409eff",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/report/category",
+      "style": {
+        "navigationBarTitleText": "选择分类",
+        "navigationBarBackgroundColor": "#409eff",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/report/location",
+      "style": {
+        "navigationBarTitleText": "地图定位",
+        "navigationBarBackgroundColor": "#409eff",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/task/index",
+      "style": {
+        "navigationBarTitleText": "我的任务",
+        "navigationBarBackgroundColor": "#409eff",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/task/detail",
+      "style": {
+        "navigationBarTitleText": "任务详情",
+        "navigationBarBackgroundColor": "#409eff",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/appeal/index",
+      "style": {
+        "navigationBarTitleText": "申诉",
+        "navigationBarBackgroundColor": "#409eff",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/message/index",
+      "style": {
+        "navigationBarTitleText": "消息通知",
+        "navigationBarBackgroundColor": "#409eff",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/user/index",
+      "style": {
+        "navigationBarTitleText": "个人中心",
+        "navigationBarBackgroundColor": "#409eff",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/user/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationBarBackgroundColor": "#409eff",
+        "navigationBarTextStyle": "white"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "智慧城管",
+    "navigationBarBackgroundColor": "#409eff",
+    "backgroundColor": "#F8F8F8"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#409eff",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/report/index",
+        "iconPath": "static/tabbar/report.png",
+        "selectedIconPath": "static/tabbar/report-active.png",
+        "text": "上报"
+      },
+      {
+        "pagePath": "pages/task/index",
+        "iconPath": "static/tabbar/task.png",
+        "selectedIconPath": "static/tabbar/task-active.png",
+        "text": "任务"
+      },
+      {
+        "pagePath": "pages/user/index",
+        "iconPath": "static/tabbar/user.png",
+        "selectedIconPath": "static/tabbar/user-active.png",
+        "text": "我的"
+      }
+    ]
+  }
+}

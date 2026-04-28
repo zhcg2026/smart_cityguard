@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.cityguard</groupId>
+        <artifactId>smart-cityguard</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>smart-cityguard-server</artifactId>
+    <name>启动模块</name>
+    <description>应用启动入口</description>
+
+    <dependencies>
+        <!-- 所有业务模块 -->
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-auth</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-case</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-dispatch</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-handle</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-task</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-timer</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-appeal</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-evaluation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-message</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-geo</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-config</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-file</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-log</artifactId>
+        </dependency>
+
+        <!-- 数据库 -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
