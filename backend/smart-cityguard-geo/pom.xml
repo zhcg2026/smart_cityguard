@@ -18,5 +18,13 @@
             <groupId>com.cityguard</groupId>
             <artifactId>smart-cityguard-common</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-auth</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
     </dependencies>
 </project>

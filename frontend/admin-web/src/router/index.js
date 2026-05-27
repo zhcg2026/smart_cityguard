@@ -255,7 +255,13 @@ const routes = [
         path: 'grid',
         name: 'GridManage',
         component: () => import('@/views/geo/GridManage.vue'),
-        meta: { title: '网格管理' }
+        meta: { title: '片区管理' }
+      },
+      {
+        path: 'collector',
+        name: 'CollectorManage',
+        component: () => import('@/views/geo/CollectorManage.vue'),
+        meta: { title: '采集员管理' }
       },
       {
         path: 'street',

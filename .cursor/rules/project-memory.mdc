@@ -105,6 +105,13 @@ Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-m
 
 ## 沟通纪要（接续用）
 
+**2026-05-28**
+
+- **P0 延期/挂账**：联调验收通过；派遣员可在列表与**案件详情**审批；挂账支持自选截止日期（≤1 年）。
+- **P1 采集员地图**：`/geo/collector` + `GET /geo/collector-map/overview`；选中采集员后地图**仅显示该员 `reporter_id` 上报案件**。
+- **GitHub**：已同步 `master`（含 P0 大提交 + 采集员地图）。
+- **明天优先**：**综合查询引擎**；采集员地图可选增强（任务点/统计）。详见 **`docs/PROJECT_PROGRESS.md` §2026-05-28**。
+
 **2026-05-25**
 
 - **工作台**：统计 `GET /case/dashboard/stats`；待办 `GET /case/dashboard/todos`。

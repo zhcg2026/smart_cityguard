@@ -98,6 +98,17 @@ export function getRespGridByCollector(userId) {
   })
 }
 
+/**
+ * 采集员地图总览（片区 + 采集员 + 案件点位）
+ */
+export function getCollectorMapOverview(params) {
+  return request({
+    url: '/geo/collector-map/overview',
+    method: 'get',
+    params
+  })
+}
+
 // ========== 原有街道/社区/网格接口 ==========
 
 export function getStreetList() {

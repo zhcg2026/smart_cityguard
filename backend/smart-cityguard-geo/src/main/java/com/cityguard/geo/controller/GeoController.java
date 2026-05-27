@@ -1,16 +1,22 @@
 package com.cityguard.geo.controller;
 
+import com.cityguard.auth.entity.LoginUser;
+import com.cityguard.common.exception.BusinessException;
 import com.cityguard.common.result.Result;
+import com.cityguard.geo.dto.CollectorMapOverviewDto;
 import com.cityguard.geo.entity.ResponsibilityGrid;
 import com.cityguard.geo.entity.SysCommunity;
 import com.cityguard.geo.entity.SysGrid;
 import com.cityguard.geo.entity.SysStreet;
+import com.cityguard.geo.service.CollectorMapService;
 import com.cityguard.geo.service.GeoService;
 import com.cityguard.geo.service.RespGridService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,6 +31,7 @@ public class GeoController {
 
     private final GeoService geoService;
     private final RespGridService respGridService;
+    private final CollectorMapService collectorMapService;
 
     @Operation(summary = "获取街道列表")
     @GetMapping("/street/list")
@@ -132,5 +139,34 @@ public class GeoController {
             @Parameter(description = "经度") @RequestParam Double lng,
             @Parameter(description = "纬度") @RequestParam Double lat) {
         return Result.success(respGridService.validateCollectorReportLocation(userId, lng, lat));
+    }
+
+    @Operation(summary = "采集员地图总览（管理员/值班长）", tags = {"采集员管理"})
+    @GetMapping("/collector-map/overview")
+    public Result<CollectorMapOverviewDto> collectorMapOverview(
+            @RequestParam(defaultValue = "30") Integer caseDays,
+            @RequestParam(defaultValue = "300") Integer caseLimit) {
+        assertAdminLike(currentUser());
+        return Result.success(collectorMapService.loadOverview(
+                caseDays != null ? caseDays : 30,
+                caseLimit != null ? caseLimit : 300));
+    }
+
+    private static LoginUser currentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof LoginUser loginUser) {
+            return loginUser;
+        }
+        return null;
+    }
+
+    private static void assertAdminLike(LoginUser user) {
+        if (user == null || user.getRoles() == null) {
+            throw new BusinessException("未登录");
+        }
+        if (user.getRoles().contains("ADMIN") || user.getRoles().contains("SUPERVISOR")) {
+            return;
+        }
+        throw new BusinessException("无权查看采集员地图");
     }
 }
