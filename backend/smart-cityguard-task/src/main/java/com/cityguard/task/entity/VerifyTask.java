@@ -1,9 +1,14 @@
 package com.cityguard.task.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
+/**
+ * 核实任务（结案前可选分支，verify_task 表）
+ */
 @Data
 @TableName("verify_task")
 public class VerifyTask {
@@ -11,38 +16,85 @@ public class VerifyTask {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String taskNo;
+    private String taskCode;
 
     private Long caseId;
 
-    private String caseNo;
+    private String caseCode;
 
-    private Long collectorId;
+    private String sourceType;
 
-    private String collectorName;
+    private String sourceDesc;
 
-    private String address;
+    private String bigCode;
+
+    private String bigName;
+
+    private String smallCode;
+
+    private String smallName;
+
+    private String description;
 
     private Double longitude;
 
     private Double latitude;
 
-    private String categorySmallName;
+    private String address;
 
-    private Integer status;
+    private Long respGridId;
 
-    private Integer result;
+    private String taskStatus;
 
-    private String remark;
+    private LocalDateTime assignTime;
 
+    private LocalDateTime finishTime;
+
+    private LocalDateTime deadlineTime;
+
+    private Long collectorId;
+
+    private String collectorName;
+
+    private String collectorPhone;
+
+    private String verifyResult;
+
+    private String verifyOpinion;
+
+    private Long creatorId;
+
+    private String creatorName;
+
+    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
-    private LocalDateTime executeTime;
-
-    private LocalDateTime deadline;
-
-    private Integer isOverdue;
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updateTime;
 
     @TableLogic
     private Integer isDeleted;
+
+    @TableField(exist = false)
+    private String handleDeptName;
+
+    @JsonProperty("taskNo")
+    public String getTaskNo() {
+        return taskCode;
+    }
+
+    @JsonProperty("caseNo")
+    public String getCaseNo() {
+        return caseCode;
+    }
+
+    @JsonProperty("categoryBigName")
+    public String getCategoryBigName() {
+        return bigName;
+    }
+
+    @JsonProperty("categorySmallName")
+    public String getCategorySmallName() {
+        return smallName;
+    }
 }

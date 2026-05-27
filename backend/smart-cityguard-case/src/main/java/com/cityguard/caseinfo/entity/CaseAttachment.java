@@ -12,20 +12,27 @@ public class CaseAttachment {
     private Long id;
 
     private Long caseId;
+    private Long flowRecordId;
 
-    private Integer attachmentType;
-
+    // 附件信息
     private String fileType;
-
-    private String fileUrl;
-
     private String fileName;
+    private String filePath;
+    private Integer fileSize;
+    private String fileExt;
 
-    private Long fileSize;
+    // 图片特有字段
+    private String photoType;
+    private Double longitude;
+    private Double latitude;
+    private LocalDateTime shootTime;
 
-    private Integer flowType;
+    // 上传人
+    private Long uploaderId;
+    private String uploaderName;
 
-    private LocalDateTime uploadTime;
+    // 关联节点
+    private String nodeCode;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;

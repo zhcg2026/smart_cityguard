@@ -11,15 +11,13 @@ public class CategoryBig {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String name;
+    private String bigCode;
 
-    private String code;
+    private String bigName;
 
-    private Integer type;
+    private String categoryType;
 
-    private String icon;
-
-    private Integer sort;
+    private Integer sortOrder;
 
     private String description;
 
@@ -30,4 +28,8 @@ public class CategoryBig {
     private LocalDateTime updateTime;
 
     private Integer status;
+
+    @TableLogic
+    @TableField("is_deleted")
+    private Integer deleted;
 }

@@ -2,8 +2,12 @@ package com.cityguard.config.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
+/**
+ * 与 {@code database/init.sql} 表 {@code time_limit_rule} 一致（全局时限类型规则）。
+ */
 @Data
 @TableName("time_limit_rule")
 public class TimeLimitRule {
@@ -11,15 +15,23 @@ public class TimeLimitRule {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private Long categorySmallId;
+    private String timeLimitType;
 
-    private Integer timeLimitType;
+    private String typeName;
 
-    private Integer handleHours;
+    private Integer isContinuous;
 
-    private Integer checkHours;
+    private Integer includeHoliday;
 
-    private String description;
+    private Integer includeWeekend;
+
+    private Integer useWorkTimeConfig;
+
+    private String calcDesc;
+
+    private Integer sortOrder;
+
+    private Integer status;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
@@ -27,5 +39,7 @@ public class TimeLimitRule {
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
 
-    private Integer status;
+    @TableLogic
+    @TableField("is_deleted")
+    private Integer deleted;
 }

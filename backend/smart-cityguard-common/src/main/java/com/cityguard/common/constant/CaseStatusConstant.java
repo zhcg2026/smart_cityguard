@@ -12,8 +12,8 @@ public class CaseStatusConstant {
 
     // 上报阶段
     public static final String REPORTED = "reported";           // 上报
-    public static final String PENDING_ACCEPT = "pending_accept"; // 待立案
     public static final String PENDING_VERIFY = "pending_verify"; // 待核实
+    public static final String PENDING_REGISTER = "pending_register"; // 待立案
 
     // 立案阶段
     public static final String ACCEPTED = "accepted";           // 立案

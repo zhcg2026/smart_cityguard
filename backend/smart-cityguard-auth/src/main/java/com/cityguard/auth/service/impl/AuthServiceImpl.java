@@ -1,7 +1,9 @@
 package com.cityguard.auth.service.impl;
 
 import com.cityguard.auth.entity.LoginUser;
+import com.cityguard.auth.entity.SysDepartment;
 import com.cityguard.auth.entity.SysUser;
+import com.cityguard.auth.mapper.SysDepartmentMapper;
 import com.cityguard.auth.mapper.SysUserMapper;
 import com.cityguard.auth.security.JwtUtils;
 import com.cityguard.auth.service.AuthService;
@@ -22,12 +24,13 @@ import java.util.Map;
 public class AuthServiceImpl implements AuthService {
 
     private final SysUserMapper sysUserMapper;
+    private final SysDepartmentMapper sysDepartmentMapper;
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public Result<?> login(String username, String password) {
-        SysUser user = sysUserMapper.selectByUsername(username);
+        SysUser user = resolveLoginUser(username);
         if (user == null) {
             throw new BusinessException("用户不存在");
         }
@@ -73,13 +76,30 @@ public class AuthServiceImpl implements AuthService {
         loginUser.setEmail(user.getEmail());
         loginUser.setDepartmentId(user.getDepartmentId());
         loginUser.setDepartmentName(user.getDepartmentName());
-        loginUser.setGridId(user.getGridId());
-        loginUser.setGridName(user.getGridName());
 
         List<String> roles = sysUserMapper.selectRoleCodesByUserId(user.getId());
         loginUser.setRoles(roles);
 
         return Result.success(loginUser);
+    }
+
+    /**
+     * 支持：用户名、dept_{id}、部门名称（与 sys_department.dept_name 一致）
+     */
+    private SysUser resolveLoginUser(String loginName) {
+        if (loginName == null || loginName.isBlank()) {
+            return null;
+        }
+        String name = loginName.trim();
+        SysUser user = sysUserMapper.selectByUsername(name);
+        if (user != null) {
+            return user;
+        }
+        SysDepartment dept = sysDepartmentMapper.selectActiveWithLoginByDeptName(name);
+        if (dept != null && dept.getLoginUserId() != null) {
+            return sysUserMapper.selectById(dept.getLoginUserId());
+        }
+        return null;
     }
 
     @Override

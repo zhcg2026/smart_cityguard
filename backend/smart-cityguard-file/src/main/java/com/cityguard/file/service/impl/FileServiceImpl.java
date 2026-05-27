@@ -134,11 +134,26 @@ public class FileServiceImpl implements FileService {
     }
 
     private String extractObjectName(String fileUrl) {
+        if (fileUrl == null || fileUrl.isBlank()) {
+            throw new BusinessException("无效的文件URL");
+        }
+        String url = fileUrl.trim();
+        int q = url.indexOf('?');
+        if (q > 0) {
+            url = url.substring(0, q);
+        }
+        if (!url.contains("://")) {
+            return url.startsWith("/") ? url.substring(1) : url;
+        }
         String bucketName = minioConfig.getBucketName();
-        int startIndex = fileUrl.indexOf(bucketName);
+        int startIndex = url.indexOf("/" + bucketName + "/");
+        if (startIndex >= 0) {
+            return url.substring(startIndex + bucketName.length() + 2);
+        }
+        startIndex = url.indexOf(bucketName);
         if (startIndex == -1) {
             throw new BusinessException("无效的文件URL");
         }
-        return fileUrl.substring(startIndex + bucketName.length() + 1);
+        return url.substring(startIndex + bucketName.length() + 1);
     }
 }

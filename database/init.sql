@@ -867,6 +867,20 @@ CREATE TABLE time_limit_rule (
     UNIQUE KEY uk_time_limit_type (time_limit_type)
 ) COMMENT '时限计算规则表';
 
+-- 8.3.1 小类处置时限覆盖（业务配置-时限配置）
+CREATE TABLE category_time_limit_override (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+    small_id BIGINT NOT NULL COMMENT '小类ID',
+    time_limit_type VARCHAR(20) NOT NULL COMMENT '时限类型',
+    time_limit_value INT NOT NULL COMMENT '时限数值',
+    remark VARCHAR(200) COMMENT '备注',
+    status TINYINT DEFAULT 1 COMMENT '状态',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted TINYINT DEFAULT 0,
+    UNIQUE KEY uk_small_id (small_id)
+) COMMENT '小类处置时限覆盖配置';
+
 -- 8.4 案件计时记录表
 CREATE TABLE case_timer_record (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
@@ -893,6 +907,9 @@ CREATE TABLE case_timer_record (
     work_days_used INT COMMENT '已用工作日',
 
     timer_status VARCHAR(20) NOT NULL COMMENT '计时状态',
+
+    pause_start_time DATETIME COMMENT '挂账暂停开始时间',
+    total_paused_seconds INT DEFAULT 0 COMMENT '累计暂停秒数',
 
     is_bundled TINYINT DEFAULT 0 COMMENT '是否捆绑计时',
     bundled_case_ids VARCHAR(500) COMMENT '捆绑案件ID列表',
@@ -1708,6 +1725,13 @@ INSERT INTO category_big (big_code, big_name, category_type, sort_order) VALUES
 ('04', '突发事件', 'event', 13),
 ('05', '街面秩序', 'event', 14),
 ('06', '扩展事件', 'event', 15);
+
+-- 事件类「市容环境」下增加测试用小类（采集端上报联调）；正式环境可删除或替换
+INSERT INTO category_small (small_code, small_name, big_id, big_code, category_type, full_code, description, sort_order, status, is_deleted)
+SELECT '99', '测试小类（联调）', id, big_code, category_type, CONCAT(big_code, '99'), '用于采集端上报等功能测试', 999, 1, 0
+FROM category_big
+WHERE category_type = 'event' AND big_code = '01' AND is_deleted = 0
+LIMIT 1;
 
 -- 初始化系统配置
 INSERT INTO system_config (config_key, config_value, config_name, config_desc, config_group) VALUES

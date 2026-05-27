@@ -11,6 +11,6 @@ import java.util.List;
 @Mapper
 public interface CaseAttachmentMapper extends BaseMapper<CaseAttachment> {
 
-    @Select("SELECT * FROM case_attachment WHERE case_id = #{caseId} ORDER BY upload_time")
+    @Select("SELECT * FROM case_attachment WHERE case_id = #{caseId} ORDER BY create_time")
     List<CaseAttachment> selectByCaseId(Long caseId);
 }

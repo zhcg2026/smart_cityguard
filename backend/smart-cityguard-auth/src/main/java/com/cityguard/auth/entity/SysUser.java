@@ -25,7 +25,23 @@ public class SysUser {
 
     private Long departmentId;
 
+    /** 列表/详情展示用，非表字段 */
+    @TableField(exist = false)
     private String departmentName;
+
+    /** 列表展示：角色中文名，逗号分隔 */
+    @TableField(exist = false)
+    private String roleNames;
+
+    /** 系统内置管理员：无部门、不可被编辑/删除 */
+    @TableField(exist = false)
+    private Boolean systemProtected;
+
+    /** 部门登录账号：仅可通过部门管理维护 */
+    @TableField(exist = false)
+    private Boolean deptLoginAccount;
+
+    private Integer status;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
@@ -34,12 +50,6 @@ public class SysUser {
     private LocalDateTime updateTime;
 
     @TableLogic
-    @TableField(value = "is_deleted")
-    private Integer isDeleted;
-
-    private Integer status;
-
-    private Long gridId;
-
-    private String gridName;
+    @TableField("deleted")
+    private Integer deleted;
 }

@@ -18,5 +18,15 @@
             <groupId>com.cityguard</groupId>
             <artifactId>smart-cityguard-common</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-auth</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
     </dependencies>
 </project>

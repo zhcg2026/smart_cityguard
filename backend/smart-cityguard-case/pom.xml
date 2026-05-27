@@ -16,6 +16,10 @@
     <dependencies>
         <dependency>
             <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-auth</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
             <artifactId>smart-cityguard-common</artifactId>
         </dependency>
         <dependency>
@@ -25,6 +29,10 @@
         <dependency>
             <groupId>com.cityguard</groupId>
             <artifactId>smart-cityguard-timer</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-task</artifactId>
         </dependency>
     </dependencies>
 </project>

@@ -1,8 +1,0 @@
-com\cityguard\task\controller\TaskController$ExecuteRequest.class
-com\cityguard\task\mapper\CheckTaskMapper.class
-com\cityguard\task\entity\VerifyTask.class
-com\cityguard\task\controller\TaskController.class
-com\cityguard\task\service\TaskService.class
-com\cityguard\task\entity\CheckTask.class
-com\cityguard\task\service\impl\TaskServiceImpl.class
-com\cityguard\task\mapper\VerifyTaskMapper.class

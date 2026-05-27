@@ -1,9 +1,0 @@
-com\cityguard\message\mapper\DailyTipMapper.class
-com\cityguard\message\entity\UserMessage.class
-com\cityguard\message\entity\DailyTip.class
-com\cityguard\message\service\impl\MessageServiceImpl.class
-com\cityguard\message\entity\Announcement.class
-com\cityguard\message\mapper\AnnouncementMapper.class
-com\cityguard\message\controller\MessageController.class
-com\cityguard\message\mapper\UserMessageMapper.class
-com\cityguard\message\service\MessageService.class

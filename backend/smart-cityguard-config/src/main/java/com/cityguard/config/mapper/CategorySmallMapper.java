@@ -10,9 +10,9 @@ import java.util.List;
 @Mapper
 public interface CategorySmallMapper extends BaseMapper<CategorySmall> {
 
-    @Select("SELECT * FROM category_small WHERE category_big_id = #{categoryBigId} AND status = 1 ORDER BY sort")
+    @Select("SELECT * FROM category_small WHERE big_id = #{categoryBigId} AND status = 1 AND is_deleted = 0 ORDER BY sort_order")
     List<CategorySmall> selectByCategoryBigId(Long categoryBigId);
 
-    @Select("SELECT * FROM category_small WHERE status = 1 ORDER BY category_big_id, sort")
+    @Select("SELECT * FROM category_small WHERE status = 1 AND is_deleted = 0 ORDER BY big_id, sort_order")
     List<CategorySmall> selectAllActive();
 }

@@ -3,11 +3,22 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { getToken } from '@/utils/auth'
 
 const userStore = useUserStore()
-// 初始化用户信息
-userStore.initUser()
+
+onMounted(async () => {
+  userStore.initUser()
+  if (getToken() && !userStore.roles?.length) {
+    try {
+      await userStore.getUserInfo()
+    } catch (error) {
+      console.warn('恢复登录态失败:', error)
+    }
+  }
+})
 </script>
 
 <style>

@@ -33,7 +33,7 @@
             @click="selectCategoryBig(item)"
           >
             <view class="category-icon">{{ item.icon }}</view>
-            <view class="category-name">{{ item.name }}</view>
+            <view class="category-name">{{ item.bigName }}</view>
           </view>
         </view>
       </view>
@@ -48,7 +48,7 @@
             :class="{ selected: formData.categorySmallId === item.id }"
             @click="selectCategorySmall(item)"
           >
-            <view class="category-name">{{ item.name }}</view>
+            <view class="category-name">{{ item.smallName }}</view>
             <view class="category-arrow">
               <text class="iconfont">&#xe600;</text>
             </view>
@@ -66,7 +66,7 @@
             :class="{ selected: formData.conditionId === item.id }"
             @click="selectCondition(item)"
           >
-            <view class="condition-content">{{ item.content }}</view>
+            <view class="condition-content">{{ item.conditionContent }}</view>
             <view class="condition-check" v-if="formData.conditionId === item.id">
               <text class="iconfont">&#xe601;</text>
             </view>
@@ -75,7 +75,7 @@
       </view>
 
       <view class="btn-group">
-        <button class="btn-next" :disabled="!formData.conditionId" @click="nextStep">下一步</button>
+        <button class="btn-next" @click="tryNextFromStep1">下一步</button>
       </view>
     </view>
 
@@ -126,7 +126,7 @@
 
       <view class="btn-group">
         <button class="btn-prev" @click="prevStep">上一步</button>
-        <button class="btn-next" :disabled="!formData.description" @click="nextStep">下一步</button>
+        <button class="btn-next" :disabled="!formData.description || !formData.description.trim()" @click="nextStep">下一步</button>
       </view>
     </view>
 
@@ -204,7 +204,7 @@ export default {
     },
     async selectCategoryBig(item) {
       this.formData.categoryBigId = item.id
-      this.formData.categoryBigName = item.name
+      this.formData.categoryBigName = item.bigName
       this.formData.categorySmallId = ''
       this.formData.conditionId = ''
       this.categorySmallList = []
@@ -219,7 +219,7 @@ export default {
     },
     async selectCategorySmall(item) {
       this.formData.categorySmallId = item.id
-      this.formData.categorySmallName = item.name
+      this.formData.categorySmallName = item.smallName
       this.formData.conditionId = ''
       this.conditionList = []
 
@@ -232,7 +232,22 @@ export default {
     },
     selectCondition(item) {
       this.formData.conditionId = item.id
-      this.formData.conditionName = item.content
+      this.formData.conditionName = item.conditionContent
+    },
+    tryNextFromStep1() {
+      if (!this.formData.categoryBigId) {
+        uni.showToast({ title: '请选择大类', icon: 'none' })
+        return
+      }
+      if (this.categorySmallList.length > 0 && !this.formData.categorySmallId) {
+        uni.showToast({ title: '请选择小类', icon: 'none' })
+        return
+      }
+      if (this.conditionList.length > 0 && !this.formData.conditionId) {
+        uni.showToast({ title: '请选择立案条件', icon: 'none' })
+        return
+      }
+      this.nextStep()
     },
     async initLocation() {
       try {

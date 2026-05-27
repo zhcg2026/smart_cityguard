@@ -1,8 +1,0 @@
-com\cityguard\appeal\mapper\AppealAttachmentMapper.class
-com\cityguard\appeal\service\AppealService.class
-com\cityguard\appeal\entity\AppealApply.class
-com\cityguard\appeal\controller\AppealController.class
-com\cityguard\appeal\service\impl\AppealServiceImpl.class
-com\cityguard\appeal\controller\AppealController$ReviewRequest.class
-com\cityguard\appeal\entity\AppealAttachment.class
-com\cityguard\appeal\mapper\AppealApplyMapper.class

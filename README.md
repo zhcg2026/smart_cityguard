@@ -29,6 +29,8 @@ smart_cityguard/
 └── docs/                       # 设计文档
 ```
 
+立结案标准 Excel 模板（`muban.xlsx`）的**解析约定与库表映射**见：**[docs/case-standard-muban-spec.md](docs/case-standard-muban-spec.md)**（先文档、后开发）。
+
 ## 技术栈
 
 ### 后端
@@ -46,6 +48,8 @@ smart_cityguard/
 - uni-app (采集端跨平台APP)
 
 ## 快速开始
+
+本地按顺序启动命令见：**[docs/startup-guide.md](docs/startup-guide.md)**（精简版，仅调试用）。
 
 ### 1. 数据库初始化
 

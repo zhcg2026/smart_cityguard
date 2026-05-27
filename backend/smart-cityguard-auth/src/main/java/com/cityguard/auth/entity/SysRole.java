@@ -17,6 +17,8 @@ public class SysRole {
 
     private String description;
 
+    private Integer status;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
@@ -24,7 +26,6 @@ public class SysRole {
     private LocalDateTime updateTime;
 
     @TableLogic
+    @TableField("deleted")
     private Integer isDeleted;
-
-    private Integer status;
 }

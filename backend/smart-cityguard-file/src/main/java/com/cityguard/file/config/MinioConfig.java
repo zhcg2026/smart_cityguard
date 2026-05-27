@@ -2,10 +2,12 @@ package com.cityguard.file.config;
 
 import io.minio.MinioClient;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@EnableConfigurationProperties(MinioEmbeddedProperties.class)
 public class MinioConfig {
 
     @Value("${minio.endpoint}")
@@ -21,7 +23,8 @@ public class MinioConfig {
     private String bucketName;
 
     @Bean
-    public MinioClient minioClient() {
+    public MinioClient minioClient(MinioEmbeddedProperties embedded) {
+        EmbeddedMinioSupport.ensureRunning(embedded, endpoint, accessKey, secretKey);
         return MinioClient.builder()
                 .endpoint(endpoint)
                 .credentials(accessKey, secretKey)

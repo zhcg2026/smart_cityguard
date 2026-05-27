@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-header">
-        <img src="@/assets/images/logo.png" alt="logo" class="logo" />
+        <el-icon class="logo-icon" :size="80" color="#667eea"><OfficeBuilding /></el-icon>
         <h2>智慧城管管理平台</h2>
         <p>运城市城市综合管理服务系统</p>
       </div>
@@ -80,6 +80,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { OfficeBuilding } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -149,9 +150,7 @@ function refreshCaptcha() {
       text-align: center;
       margin-bottom: 30px;
 
-      .logo {
-        width: 80px;
-        height: 80px;
+      .logo-icon {
         margin-bottom: 16px;
       }
 

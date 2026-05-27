@@ -4,29 +4,32 @@
       <!-- 侧边栏 -->
       <el-aside :width="sidebarWidth" class="sidebar">
         <div class="logo">
-          <img src="@/assets/images/logo.png" alt="logo" v-if="!appStore.sidebar.collapsed" />
+          <el-icon :size="32" color="#409EFF"><OfficeBuilding /></el-icon>
           <span v-if="!appStore.sidebar.collapsed">智慧城管</span>
           <span v-else>城管</span>
         </div>
-        <el-scrollbar>
+        <el-scrollbar ref="scrollbarRef" class="sidebar-scroll">
           <el-menu
+            ref="menuRef"
             :default-active="activeMenu"
             :collapse="appStore.sidebar.collapsed"
             :collapse-transition="false"
-            :unique-opened="true"
+            :unique-opened="false"
             background-color="#304156"
             text-color="#bfcbd9"
             active-text-color="#409EFF"
             router
+            @open="handleMenuToggle"
+            @close="handleMenuToggle"
           >
             <template v-for="route in menuRoutes" :key="route.path">
               <!-- 没有子菜单 -->
               <el-menu-item
                 v-if="!route.children || route.children.length === 1"
-                :index="route.children?.[0]?.path || route.path"
+                :index="getFullPath(route, route.children?.[0])"
               >
-                <el-icon><component :is="route.meta?.icon || 'Document'" /></el-icon>
-                <template #title>{{ route.meta?.title }}</template>
+                <el-icon><component :is="route.children?.[0]?.meta?.icon || route.meta?.icon || 'Document'" /></el-icon>
+                <template #title>{{ route.children?.[0]?.meta?.title || route.meta?.title }}</template>
               </el-menu-item>
 
               <!-- 有子菜单 -->
@@ -38,7 +41,7 @@
                 <el-menu-item
                   v-for="child in route.children"
                   :key="child.path"
-                  :index="child.path"
+                  :index="getFullPath(route, child)"
                 >
                   {{ child.meta?.title }}
                 </el-menu-item>
@@ -67,10 +70,16 @@
             </el-breadcrumb>
           </div>
           <div class="right">
+            <el-badge :value="unreadCount" :hidden="unreadCount < 1" :max="99" class="msg-badge">
+              <el-button text class="msg-btn" @click="goMessages">
+                <el-icon :size="20"><Bell /></el-icon>
+              </el-button>
+            </el-badge>
             <el-dropdown trigger="click">
               <div class="user-info">
                 <el-avatar :size="32">{{ userStore.userInfo.realName?.charAt(0) || 'U' }}</el-avatar>
                 <span class="username">{{ userStore.userInfo.realName || '用户' }}</span>
+                <span v-if="roleLabelText" class="role-tags">{{ roleLabelText }}</span>
                 <el-icon><ArrowDown /></el-icon>
               </div>
               <template #dropdown>
@@ -117,15 +126,63 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { OfficeBuilding, Bell } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
+import { canAccessMeta, formatRoleLabels, mergeRouteMeta } from '@/utils/roleAccess'
+import { useMessagePoll } from '@/composables/useMessagePoll'
+import { getToken } from '@/utils/auth'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const appStore = useAppStore()
+const { unreadCount } = useMessagePoll()
+const menuRef = ref()
+const scrollbarRef = ref()
+
+const roleLabelText = computed(() => formatRoleLabels(userStore.roles))
+
+onMounted(async () => {
+  if (getToken() && !userStore.roles?.length) {
+    try {
+      await userStore.getUserInfo()
+    } catch (error) {
+      console.warn('加载用户信息失败:', error)
+    }
+  }
+  syncOpenedSubMenu()
+})
+
+function handleMenuToggle() {
+  updateSidebarScroll()
+}
+
+function updateSidebarScroll() {
+  nextTick(() => {
+    scrollbarRef.value?.update?.()
+  })
+}
+
+function syncOpenedSubMenu() {
+  nextTick(() => {
+    const seg = route.path.split('/').filter(Boolean)[0]
+    if (!seg) {
+      updateSidebarScroll()
+      return
+    }
+    const topPath = `/${seg}`
+    const hasSubMenu = menuRoutes.value.some(
+      (r) => r.path === topPath && r.children?.length > 1
+    )
+    if (hasSubMenu) {
+      menuRef.value?.open(topPath)
+    }
+    updateSidebarScroll()
+  })
+}
 
 // 侧边栏宽度
 const sidebarWidth = computed(() => appStore.sidebar.collapsed ? '64px' : '220px')
@@ -138,11 +195,43 @@ const breadcrumbs = computed(() => {
   return route.matched.filter(item => item.meta?.title)
 })
 
-// 菜单路由
+// 菜单路由（按角色过滤；与 router meta.roles 一致）
 const menuRoutes = computed(() => {
-  const routes = router.options.routes.filter(r => !r.meta?.hidden && r.children)
-  return routes
+  const userRoles = userStore.roles || []
+  if (!userRoles.length) {
+    return []
+  }
+  return router.options.routes
+    .filter((r) => r.children && !r.meta?.hidden)
+    .map((r) => {
+      if (!canAccessMeta(r.meta, userRoles)) return null
+      const children = r.children.filter((c) => {
+        if (c.meta?.hidden) return false
+        return canAccessMeta(mergeRouteMeta(r.meta, c.meta), userRoles)
+      })
+      if (!children.length) return null
+      return { ...r, children }
+    })
+    .filter(Boolean)
 })
+
+watch(() => route.path, syncOpenedSubMenu)
+watch(menuRoutes, syncOpenedSubMenu)
+watch(() => appStore.sidebar.collapsed, updateSidebarScroll)
+
+function goMessages() {
+  router.push('/message/list')
+}
+
+// 获取完整路径
+function getFullPath(parent, child) {
+  if (!child) return parent.path
+  // 如果child.path已经是完整路径，直接返回
+  if (child.path.startsWith('/')) return child.path
+  // 如果parent.path是根路径"/"，直接返回"/" + child.path
+  if (parent.path === '/') return '/' + child.path
+  return parent.path + '/' + child.path
+}
 
 // 标签页相关
 const visitedViews = ref([])
@@ -205,11 +294,14 @@ async function handleLogout() {
   }
 
   .sidebar {
+    display: flex;
+    flex-direction: column;
     background-color: #304156;
     transition: width 0.3s;
     overflow: hidden;
 
     .logo {
+      flex-shrink: 0;
       height: 60px;
       display: flex;
       align-items: center;
@@ -219,10 +311,18 @@ async function handleLogout() {
       font-size: 18px;
       font-weight: bold;
 
-      img {
-        height: 32px;
+      .el-icon {
         margin-right: 8px;
       }
+    }
+
+    :deep(.sidebar-scroll) {
+      flex: 1;
+      min-height: 0;
+    }
+
+    :deep(.sidebar-scroll .el-scrollbar__wrap) {
+      overflow-x: hidden;
     }
 
     .el-menu {
@@ -264,6 +364,23 @@ async function handleLogout() {
         .username {
           margin: 0 8px;
         }
+
+        .role-tags {
+          font-size: 12px;
+          color: #909399;
+          max-width: 200px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+
+      .msg-badge {
+        margin-right: 12px;
+      }
+
+      .msg-btn {
+        padding: 4px 8px;
       }
     }
   }

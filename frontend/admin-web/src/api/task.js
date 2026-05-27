@@ -1,24 +1,6 @@
 import request from '@/utils/request'
 
-// 获取核查任务列表
-export function getVerifyTaskList(params) {
-  return request({
-    url: '/task/verify/list',
-    method: 'get',
-    params
-  })
-}
-
-// 执行核查任务
-export function executeVerifyTask(data) {
-  return request({
-    url: '/task/verify/execute',
-    method: 'post',
-    data
-  })
-}
-
-// 获取核实任务列表
+// 核查任务列表（check_task，立案前）
 export function getCheckTaskList(params) {
   return request({
     url: '/task/check/list',
@@ -27,7 +9,16 @@ export function getCheckTaskList(params) {
   })
 }
 
-// 执行核实任务
+// 核实任务列表（verify_task，结案前）
+export function getVerifyTaskList(params) {
+  return request({
+    url: '/task/verify/list',
+    method: 'get',
+    params
+  })
+}
+
+// 执行核查任务（采集端使用；管理端台账不调用）
 export function executeCheckTask(data) {
   return request({
     url: '/task/check/execute',

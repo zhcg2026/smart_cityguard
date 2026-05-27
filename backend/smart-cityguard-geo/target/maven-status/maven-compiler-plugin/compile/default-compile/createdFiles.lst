@@ -1,9 +1,0 @@
-com\cityguard\geo\entity\SysGrid.class
-com\cityguard\geo\entity\SysStreet.class
-com\cityguard\geo\controller\GeoController.class
-com\cityguard\geo\mapper\SysStreetMapper.class
-com\cityguard\geo\service\impl\GeoServiceImpl.class
-com\cityguard\geo\service\GeoService.class
-com\cityguard\geo\mapper\SysCommunityMapper.class
-com\cityguard\geo\entity\SysCommunity.class
-com\cityguard\geo\mapper\SysGridMapper.class

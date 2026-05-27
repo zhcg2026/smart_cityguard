@@ -59,6 +59,35 @@ public class FileController {
                 .body(data);
     }
 
+    @Operation(summary = "预览文件（图片/视频，供前端 img/video 标签带鉴权加载）")
+    @GetMapping("/preview")
+    public ResponseEntity<byte[]> previewFile(@RequestParam String fileUrl) {
+        byte[] data = fileService.downloadFile(fileUrl);
+        return ResponseEntity.ok()
+                .contentType(resolveMediaType(fileUrl))
+                .body(data);
+    }
+
+    private MediaType resolveMediaType(String fileUrl) {
+        String lower = fileUrl == null ? "" : fileUrl.toLowerCase();
+        if (lower.endsWith(".png")) {
+            return MediaType.IMAGE_PNG;
+        }
+        if (lower.endsWith(".gif")) {
+            return MediaType.IMAGE_GIF;
+        }
+        if (lower.endsWith(".webp")) {
+            return MediaType.parseMediaType("image/webp");
+        }
+        if (lower.endsWith(".mp4")) {
+            return MediaType.parseMediaType("video/mp4");
+        }
+        if (lower.endsWith(".webm")) {
+            return MediaType.parseMediaType("video/webm");
+        }
+        return MediaType.IMAGE_JPEG;
+    }
+
     @Operation(summary = "删除文件")
     @DeleteMapping("/delete")
     public Result<Boolean> deleteFile(@RequestParam String fileUrl) {

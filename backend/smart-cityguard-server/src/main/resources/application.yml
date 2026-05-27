@@ -1,5 +1,12 @@
 server:
   port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+      force-request: true
+      force-response: true
 
 spring:
   application:
@@ -7,7 +14,7 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/cityguard?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    url: jdbc:mysql://localhost:3306/cityguard?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: root
     password: MySql@2024!Root
     hikari:
@@ -22,6 +29,7 @@ spring:
     port: 6379
     password:
     database: 0
+    enabled: false
 
   rabbitmq:
     host: localhost
@@ -44,7 +52,7 @@ mybatis-plus:
   global-config:
     db-config:
       id-type: auto
-      logic-delete-field: isDeleted
+      logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
 
@@ -54,9 +62,16 @@ jwt:
 
 minio:
   endpoint: http://localhost:9000
-  access-key: admin
-  secret-key: password
+  access-key: minioadmin
+  secret-key: minioadmin
   bucket-name: cityguard
+  # 本地可选：为 true 时由后端在启动时拉起 MinIO（需本机已安装 minio 且在 PATH 或配置 binary 路径）
+  embedded:
+    enabled: false
+    data-dir: D:/minio-data
+    binary: minio
+    console-address: ":9001"
+    startup-timeout-seconds: 60
 
 knife4j:
   enable: true

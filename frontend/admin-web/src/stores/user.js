@@ -14,9 +14,17 @@ export const useUserStore = defineStore('user', {
   actions: {
     // 初始化用户信息（从localStorage恢复）
     initUser() {
-      const userInfo = localStorage.getItem('userInfo')
-      if (userInfo) {
-        this.userInfo = JSON.parse(userInfo)
+      try {
+        const userInfo = localStorage.getItem('userInfo')
+        if (userInfo && userInfo !== 'undefined') {
+          const u = JSON.parse(userInfo)
+          this.userInfo = u
+          this.roles = u.roles || []
+        }
+      } catch (e) {
+        console.warn('Failed to parse userInfo from localStorage')
+        this.userInfo = {}
+        this.roles = []
       }
     },
 
@@ -33,12 +41,13 @@ export const useUserStore = defineStore('user', {
     // 获取用户信息
     async getUserInfo() {
       const res = await getUserInfo()
-      const { user, roles, permissions, menus } = res.data
-      this.userInfo = user
-      this.roles = roles
-      this.permissions = permissions
-      this.menus = menus
-      localStorage.setItem('userInfo', JSON.stringify(user))
+      // 后端直接返回 LoginUser 对象
+      const userData = res.data
+      this.userInfo = userData
+      this.roles = userData.roles || []
+      this.permissions = []
+      this.menus = []
+      localStorage.setItem('userInfo', JSON.stringify(userData))
       return res
     },
 

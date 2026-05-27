@@ -1,9 +1,9 @@
 package com.cityguard.message.service;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.cityguard.message.entity.UserMessage;
+import com.cityguard.auth.entity.LoginUser;
 import com.cityguard.message.entity.Announcement;
 import com.cityguard.message.entity.DailyTip;
+import com.cityguard.message.entity.UserMessage;
 
 import java.util.List;
 
@@ -15,19 +15,27 @@ public interface MessageService {
 
     int getUnreadCount(Long userId);
 
-    void markAsRead(Long messageId);
+    void markAsRead(Long messageId, Long userId);
 
     void markAllAsRead(Long userId);
 
-    void sendMessage(Long userId, String title, String content, Integer messageType);
+    List<Announcement> getVisibleAnnouncements(LoginUser user, Integer limit);
 
-    List<Announcement> getAnnouncementList();
+    List<Announcement> listAnnouncementsForAdmin(LoginUser operator);
 
     Announcement getAnnouncementDetail(Long id);
 
-    Announcement publishAnnouncement(Announcement announcement);
+    Announcement saveAnnouncement(Announcement announcement, LoginUser operator, boolean publish);
 
-    List<DailyTip> getDailyTips(String date);
+    void deleteAnnouncement(Long id, LoginUser operator);
 
-    List<DailyTip> getLatestTips(int limit);
+    List<DailyTip> getVisibleDailyTips(LoginUser user, Integer limit);
+
+    List<DailyTip> listDailyTipsForAdmin(LoginUser operator);
+
+    DailyTip getDailyTipDetail(Long id);
+
+    DailyTip saveDailyTip(DailyTip dailyTip, LoginUser operator, boolean publish);
+
+    void deleteDailyTip(Long id, LoginUser operator);
 }

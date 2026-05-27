@@ -2,6 +2,7 @@ package com.cityguard.message.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 @Data
@@ -13,16 +14,28 @@ public class UserMessage {
 
     private Long userId;
 
-    private String title;
+    private Long msgRecordId;
 
-    private String content;
+    private String msgCode;
 
-    private Integer messageType;
+    private String msgType;
 
-    private Integer isRead;
+    private String msgTitle;
 
+    private String msgContent;
+
+    private String bizType;
+
+    private Long bizId;
+
+    private String bizCode;
+
+    private String msgStatus;
+
+    private LocalDateTime readTime;
+
+    private LocalDateTime msgTime;
+
+    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
-
-    @TableLogic
-    private Integer isDeleted;
 }

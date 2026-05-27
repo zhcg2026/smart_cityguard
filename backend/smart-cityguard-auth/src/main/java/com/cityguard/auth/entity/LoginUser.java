@@ -13,8 +13,6 @@ public class LoginUser {
     private String email;
     private Long departmentId;
     private String departmentName;
-    private Long gridId;
-    private String gridName;
     private List<String> roles;
     private List<String> permissions;
 }

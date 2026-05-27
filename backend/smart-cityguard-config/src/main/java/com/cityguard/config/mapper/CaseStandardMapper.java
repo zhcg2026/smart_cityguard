@@ -10,6 +10,6 @@ import java.util.List;
 @Mapper
 public interface CaseStandardMapper extends BaseMapper<CaseStandard> {
 
-    @Select("SELECT * FROM case_standard WHERE category_small_id = #{categorySmallId} AND status = 1 ORDER BY sort")
-    List<CaseStandard> selectByCategorySmallId(Long categorySmallId);
+    @Select("SELECT * FROM case_standard WHERE small_id = #{smallId} AND status = 1 AND is_deleted = 0 ORDER BY sort_order")
+    List<CaseStandard> selectByCategorySmallId(Long smallId);
 }

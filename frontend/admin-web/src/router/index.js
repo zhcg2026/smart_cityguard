@@ -1,9 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import NProgress from 'nprogress'
+import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { getToken } from '@/utils/auth'
+import { RoleGroups, canAccessMeta } from '@/utils/roleAccess'
 
-// 路由配置
+// 路由配置（meta.roles 与后端 role_code 对应；ADMIN 在 canAccessMeta 中放行全部）
 const routes = [
   {
     path: '/login',
@@ -12,15 +14,34 @@ const routes = [
     meta: { title: '登录', hidden: true }
   },
   {
+    path: '/no-permission',
+    name: 'NoPermission',
+    component: () => import('@/views/error/NoPermission.vue'),
+    meta: { title: '无权限', hidden: true }
+  },
+  {
     path: '/',
     component: () => import('@/layouts/BasicLayout.vue'),
     redirect: '/dashboard',
+    meta: { roles: RoleGroups.DASHBOARD },
     children: [
       {
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('@/views/dashboard/index.vue'),
-        meta: { title: '工作台', icon: 'HomeFilled' }
+        meta: { title: '工作台', icon: 'HomeFilled', roles: RoleGroups.DASHBOARD }
+      },
+      {
+        path: 'notice/announcement',
+        name: 'AnnouncementBrowse',
+        component: () => import('@/views/notice/AnnouncementBrowse.vue'),
+        meta: { title: '公文通告', hidden: true, roles: RoleGroups.DASHBOARD }
+      },
+      {
+        path: 'notice/dailytip',
+        name: 'DailyTipBrowse',
+        component: () => import('@/views/notice/DailyTipBrowse.vue'),
+        meta: { title: '今日提示', hidden: true, roles: RoleGroups.DASHBOARD }
       }
     ]
   },
@@ -29,46 +50,167 @@ const routes = [
     path: '/case',
     component: () => import('@/layouts/BasicLayout.vue'),
     redirect: '/case/list',
-    meta: { title: '案件管理', icon: 'Document' },
+    meta: { title: '案件管理', icon: 'Document', roles: RoleGroups.CASE },
     children: [
       {
         path: 'list',
         name: 'CaseList',
         component: () => import('@/views/case/CaseList.vue'),
-        meta: { title: '案件列表' }
+        meta: { title: '案件列表', roles: RoleGroups.CASE }
+      },
+      {
+        path: 'register',
+        name: 'CaseManualRegister',
+        component: () => import('@/views/case/CaseManualRegister.vue'),
+        meta: { title: '案件登记', roles: RoleGroups.ACCEPTOR_CASE }
+      },
+      {
+        path: 'pending-register',
+        name: 'CasePendingRegister',
+        component: () => import('@/views/case/CasePending.vue'),
+        meta: {
+          title: '待立案案件',
+          roles: RoleGroups.ACCEPTOR_CASE,
+          presetStatus: 'acceptor_pending_register'
+        }
+      },
+      {
+        path: 'pending-verify',
+        name: 'CasePendingVerify',
+        component: () => import('@/views/case/CasePending.vue'),
+        meta: {
+          title: '待核实案件',
+          roles: RoleGroups.ACCEPTOR_CASE,
+          presetStatus: 'acceptor_pending_verify',
+          acceptorActionMode: 'verify'
+        }
+      },
+      {
+        path: 'pending-check',
+        name: 'CasePendingCheck',
+        component: () => import('@/views/case/CasePending.vue'),
+        meta: {
+          title: '待核查案件',
+          roles: RoleGroups.ACCEPTOR_CASE,
+          presetStatus: 'acceptor_collect_check'
+        }
+      },
+      {
+        path: 'pending-close',
+        name: 'CaseAcceptorPendingClose',
+        component: () => import('@/views/case/CasePending.vue'),
+        meta: {
+          title: '待我结案案件',
+          roles: RoleGroups.ACCEPTOR_CASE,
+          presetStatus: 'acceptor_pending_close',
+          acceptorActionMode: 'close'
+        }
+      },
+      {
+        path: 'my-registered',
+        name: 'CaseAcceptorRegistered',
+        component: () => import('@/views/case/CasePending.vue'),
+        meta: {
+          title: '我立案的案件',
+          roles: RoleGroups.ACCEPTOR_CASE,
+          presetStatus: 'acceptor_registered'
+        }
+      },
+      {
+        path: 'rejected',
+        name: 'CaseRejected',
+        component: () => import('@/views/case/CasePending.vue'),
+        meta: {
+          title: '作废案件',
+          roles: RoleGroups.ACCEPTOR_CASE,
+          presetStatus: 'not_accepted'
+        }
+      },
+      {
+        path: 'pending-dispatch',
+        name: 'CaseDispatcherPendingDispatch',
+        component: () => import('@/views/case/CasePending.vue'),
+        meta: {
+          title: '待派遣案件',
+          roles: RoleGroups.DISPATCHER_CASE,
+          presetStatus: 'dispatcher_pending_dispatch'
+        }
+      },
+      {
+        path: 'pending-review',
+        name: 'CaseDispatcherPendingReview',
+        component: () => import('@/views/case/CasePending.vue'),
+        meta: {
+          title: '待办审核',
+          roles: RoleGroups.DISPATCHER_CASE,
+          presetStatus: 'dispatcher_pending_review'
+        }
+      },
+      {
+        path: 'returned',
+        name: 'CaseDispatcherReturned',
+        component: () => import('@/views/case/CasePending.vue'),
+        meta: {
+          title: '回退案件',
+          roles: RoleGroups.DISPATCHER_CASE,
+          presetStatus: 'dispatcher_returned'
+        }
+      },
+      {
+        path: 'handled',
+        name: 'CaseDispatcherHandled',
+        component: () => import('@/views/case/CasePending.vue'),
+        meta: {
+          title: '经办案件',
+          roles: RoleGroups.DISPATCHER_CASE,
+          presetStatus: 'dispatcher_handled'
+        }
+      },
+      {
+        path: 'adjustment-review',
+        name: 'CaseAdjustmentReview',
+        component: () => import('@/views/case/AdjustmentReview.vue'),
+        meta: {
+          title: '延期挂账审批',
+          roles: RoleGroups.DISPATCHER_CASE
+        }
       },
       {
         path: 'pending',
         name: 'CasePending',
         component: () => import('@/views/case/CasePending.vue'),
-        meta: { title: '待处理案件' }
+        meta: { title: '待处理队列', roles: RoleGroups.CASE_PENDING_OPS }
       },
       {
         path: 'detail/:id',
         name: 'CaseDetail',
         component: () => import('@/views/case/CaseDetail.vue'),
-        meta: { title: '案件详情', hidden: true }
+        meta: { title: '案件详情', hidden: true, roles: RoleGroups.CASE }
       }
     ]
   },
-  // 任务管理
+  // 任务台账（核查/核实督办，仅管理员与值班长）
   {
     path: '/task',
     component: () => import('@/layouts/BasicLayout.vue'),
-    redirect: '/task/verify',
-    meta: { title: '任务管理', icon: 'List' },
+    redirect: '/task/ledger',
+    meta: { title: '任务台账', icon: 'Notebook', roles: RoleGroups.TASK_LEDGER },
     children: [
       {
-        path: 'verify',
-        name: 'VerifyTask',
-        component: () => import('@/views/task/VerifyTask.vue'),
-        meta: { title: '核查任务' }
+        path: 'ledger',
+        name: 'TaskLedger',
+        component: () => import('@/views/task/TaskLedger.vue'),
+        meta: { title: '任务台账', roles: RoleGroups.TASK_LEDGER }
       },
       {
         path: 'check',
-        name: 'CheckTask',
-        component: () => import('@/views/task/CheckTask.vue'),
-        meta: { title: '核实任务' }
+        redirect: (to) => ({ path: '/task/ledger', query: { ...to.query, tab: 'check' } }),
+        meta: { hidden: true }
+      },
+      {
+        path: 'verify',
+        redirect: (to) => ({ path: '/task/ledger', query: { ...to.query, tab: 'verify' } }),
+        meta: { hidden: true }
       }
     ]
   },
@@ -77,7 +219,7 @@ const routes = [
     path: '/appeal',
     component: () => import('@/layouts/BasicLayout.vue'),
     redirect: '/appeal/list',
-    meta: { title: '申诉管理', icon: 'ChatDotSquare' },
+    meta: { title: '申诉管理', icon: 'ChatDotSquare', roles: RoleGroups.APPEAL },
     children: [
       {
         path: 'list',
@@ -92,7 +234,7 @@ const routes = [
     path: '/evaluation',
     component: () => import('@/layouts/BasicLayout.vue'),
     redirect: '/evaluation/index',
-    meta: { title: '考核评价', icon: 'DataAnalysis' },
+    meta: { title: '考核评价', icon: 'DataAnalysis', roles: RoleGroups.EVALUATION },
     children: [
       {
         path: 'index',
@@ -107,7 +249,7 @@ const routes = [
     path: '/geo',
     component: () => import('@/layouts/BasicLayout.vue'),
     redirect: '/geo/grid',
-    meta: { title: '地理信息', icon: 'Location' },
+    meta: { title: '地理信息', icon: 'Location', roles: RoleGroups.GEO },
     children: [
       {
         path: 'grid',
@@ -128,7 +270,7 @@ const routes = [
     path: '/system',
     component: () => import('@/layouts/BasicLayout.vue'),
     redirect: '/system/user',
-    meta: { title: '系统管理', icon: 'Setting' },
+    meta: { title: '系统管理', icon: 'Setting', roles: RoleGroups.SYSTEM },
     children: [
       {
         path: 'user',
@@ -161,7 +303,7 @@ const routes = [
     path: '/config',
     component: () => import('@/layouts/BasicLayout.vue'),
     redirect: '/config/standard',
-    meta: { title: '业务配置', icon: 'Tools' },
+    meta: { title: '业务配置', icon: 'Tools', roles: RoleGroups.CONFIG },
     children: [
       {
         path: 'standard',
@@ -185,7 +327,7 @@ const routes = [
         path: 'announcement',
         name: 'AnnouncementManage',
         component: () => import('@/views/config/AnnouncementManage.vue'),
-        meta: { title: '通告管理' }
+        meta: { title: '内容发布', roles: RoleGroups.CONFIG }
       }
     ]
   },
@@ -194,7 +336,7 @@ const routes = [
     path: '/message',
     component: () => import('@/layouts/BasicLayout.vue'),
     redirect: '/message/list',
-    meta: { title: '消息通知', icon: 'Bell' },
+    meta: { title: '消息通知', icon: 'Bell', roles: RoleGroups.MESSAGE },
     children: [
       {
         path: 'list',
@@ -218,6 +360,26 @@ const router = createRouter({
   routes
 })
 
+function requiredRolesForRoute(matched) {
+  const rec = [...matched].reverse().find((r) => r.meta?.roles?.length)
+  return rec?.meta?.roles || null
+}
+
+function tryNextWithRoleGuard(to, userStore, next) {
+  // 无权限页面直接放行，避免死循环
+  if (to.path === '/no-permission') {
+    next()
+    return
+  }
+  const req = requiredRolesForRoute(to.matched)
+  if (req?.length && !canAccessMeta({ roles: req }, userStore.roles)) {
+    ElMessage.warning('当前账号无权限访问该功能')
+    next({ path: '/no-permission', replace: true })
+    return
+  }
+  next()
+}
+
 // 路由守卫
 router.beforeEach((to, from, next) => {
   NProgress.start()
@@ -232,15 +394,18 @@ router.beforeEach((to, from, next) => {
     } else {
       const userStore = useUserStore()
       if (userStore.roles.length === 0) {
-        userStore.getUserInfo().then(() => {
-          next()
-        }).catch(() => {
-          userStore.logout().then(() => {
-            next({ path: '/login' })
+        userStore
+          .getUserInfo()
+          .then(() => {
+            tryNextWithRoleGuard(to, userStore, next)
           })
-        })
+          .catch(() => {
+            userStore.logout().then(() => {
+              next({ path: '/login' })
+            })
+          })
       } else {
-        next()
+        tryNextWithRoleGuard(to, userStore, next)
       }
     }
   } else {

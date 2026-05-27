@@ -11,14 +11,34 @@ public class DailyTip {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private String tipCode;
+
+    private String title;
+
     private String content;
 
-    private Integer sort;
+    private Long publisherId;
 
-    private LocalDateTime publishDate;
+    private String publisherName;
+
+    private LocalDateTime publishTime;
+
+    private LocalDateTime expireTime;
+
+    private String receiverType;
+
+    private String receiverIds;
+
+    private String status;
+
+    private Integer readCount;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
-    private Integer status;
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updateTime;
+
+    @TableLogic
+    private Integer isDeleted;
 }

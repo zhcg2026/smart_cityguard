@@ -1,0 +1,146 @@
+---
+description: 智慧城管项目概况与本地启动说明（项目记忆）
+alwaysApply: true
+---
+
+# Smart Cityguard（智慧城管）
+
+运城市城市综合管理服务系统：采集员、受理员、派遣员、处置部门等模块；案件流：上报 → 核查 → 立案 → 派遣 → 处置 → 核实 → 结案。
+
+## 仓库结构
+
+- `backend/`：Spring Boot 3 多模块 Maven，启动模块 **`smart-cityguard-server`**
+- `frontend/admin-web/`：Vue 3 + Vite + Element Plus 管理端
+- `frontend/collector-app/`：采集员移动端（Vue 3 + Vite + Vant），浏览器调试即 H5 开发模式
+- `database/init.sql`：MySQL 初始化（约 55 张表）
+- `docs/`：设计文档
+
+## 端口与联调
+
+- 管理端开发服：**http://localhost:3000**（`admin-web` / Vite）
+- 采集端（移动端 H5）开发服：**http://localhost:3003**（`collector-app` / Vite）
+- 后端 API：**http://localhost:8080**；Knife4j：**http://localhost:8080/doc.html**
+- `admin-web` 与 `collector-app` 的 Vite 均将 **`/api` 代理到 `http://localhost:8080`**，并 `rewrite` 去掉 `/api` 前缀
+
+## 配置与依赖
+
+- 主配置：`backend/smart-cityguard-server/src/main/resources/application.yml`
+- 需本机 **MySQL**（库名示例 `cityguard`）及已执行 `database/init.sql`
+- 仓库根 `README.md` 里的数据库密码仅为示例；**以 `application.yml` 实际 `spring.datasource` 为准**
+- 同文件内 **Redis 可能为 `spring.redis.enabled: false`**；另需按项目实际使用准备 **RabbitMQ**、**MinIO**（见 `application.yml`）
+
+## 本地启动（Windows PowerShell）
+
+勿使用 CMD 写法 `cd /d ... && ...`（在 PowerShell 中会解析失败）。
+
+**管理端：**
+
+```powershell
+Set-Location d:\smart_cityguard\frontend\admin-web; npm install; npm run dev
+```
+
+**采集端（移动端 H5）：**
+
+```powershell
+Set-Location d:\smart_cityguard\frontend\collector-app; npm install; npm run dev
+```
+
+**后端：**
+
+```powershell
+Set-Location d:\smart_cityguard\backend; mvn spring-boot:run -pl smart-cityguard-server -DskipTests
+```
+
+`spring-boot:run -pl smart-cityguard-server` 会从本机 Maven 仓库加载 **`smart-cityguard-geo`、`smart-cityguard-config`、`smart-cityguard-auth` 等依赖的已安装 JAR**（不是仅用各模块 `target/classes`）。若刚改了 **`smart-cityguard-geo`**（如片区 `/geo/resp-grid/**`）却只做了 `compile` 未 **`install`**，运行进程可能仍是旧 JAR，表现为 **`/geo/street/list` 等旧接口有、`/geo/resp-grid/list` 整段 404**。建议在改子模块后执行一次：
+
+```powershell
+Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-geo -am -DskipTests
+```
+
+若改了 **`smart-cityguard-config`**（如 **`POST /config/standard/import-muban`** 等新接口）未 **`install`**，会出现 **其它 `/config/**` 正常、新路径整段 404**。建议：
+
+```powershell
+Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-config -am -DskipTests
+```
+
+若改了 **`smart-cityguard-auth`**（如 JWT 角色、`/system/user/list` 过滤）未 **`install`**，同样可能表现为 **旧行为**。建议：
+
+```powershell
+Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-auth -am -DskipTests
+```
+
+若改了 **`smart-cityguard-case`**（如 **`POST /case/dept-confirm`**、部门列表过滤、`handle_finish` 状态流）未 **`install`**，会出现 **旧处置逻辑**（提交后直接 `pending_check`、无批转接口）。建议：
+
+```powershell
+Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-case -am -DskipTests
+```
+
+若改了 **`smart-cityguard-timer`**（案件计时、`deadline_time`、列表 `timeRemaining`）未 **`install`**，会出现 **旧案件无时限/截止时间为空**。建议：
+
+```powershell
+Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-timer,smart-cityguard-case -am -DskipTests
+```
+
+若改了 **`smart-cityguard-message`**（内容发布、`/message/announcement/**`、`/dailytip/**`）未 **`install`**，会出现 **通告/提示接口 404 或旧逻辑**。建议：
+
+```powershell
+Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-message -am -DskipTests
+```
+
+然后再启动 `smart-cityguard-server`；或从根目录 **`mvn clean install -DskipTests`** 再跑启动模块。
+
+可选：`mvn clean package -DskipTests` 后 `java -jar smart-cityguard-server/target/smart-cityguard-server-1.0.0.jar`（版本以 `pom` 为准）。
+
+## 排障提示
+
+- 前端若出现 `http proxy error`（如 `/auth/login`），先确认 **8080 后端已启动** 且数据库等服务可用。
+- **片区管理页 `/geo/resp-grid/**` 全部 404，但 `/geo/grid/**` 能进**：多为 **`smart-cityguard-geo` 未 `mvn install` 到本地仓库**，`spring-boot:run` 仍在用旧 geo JAR；见上文「后端」说明。
+- **`POST /config/standard/import-muban` 等 config 新接口 404**：多为 **`smart-cityguard-config` 未 `mvn install`**，仍在用旧 config JAR；执行 **`mvn clean install -pl smart-cityguard-config -am -DskipTests`** 后重启后端。
+- **管理端（admin-web）登录后出现 `Infinite redirect in navigation guard`**：多半是路由守卫里无权限时仍 **`next('/dashboard')`**，而 **`/dashboard` 本身也做角色校验**，形成死循环；兼 **`roles` 为空** 或 **`LEADER`/`COLLECTOR` 未列入 `RoleGroups.DASHBOARD`**。完整原因与逐步修复表见 **`docs/continuation-notes.md` §8.3**。
+- **改了 `smart-cityguard-case` 新接口 404**（如 `/case/dept-confirm`）：执行 **`mvn clean install -pl smart-cityguard-case -am -DskipTests`** 后重启后端。
+- **部门账号案件列表看到全部**：已按 `handle_dept_id` 过滤；改 case 模块后需 install（见上）。
+- **HANDLER 登录移动端仍是采集员界面**：`collector-app` 已按角色分流至 `/handle`；纯 HANDLER 无上报 Tab。
+- **处置详情无地图/上报图不显示**：地图见 `CaseLocationMap.vue`；图片走 **`/api/file/preview`**，非 MinIO 直链。
+- **部门详情无「批转」**：须状态 **`handle_finish`** 或 `awaitingDeptConfirm=true`；DEPT 的 `department_id` 须等于案件 `handle_dept_id`。
+
+## 沟通纪要（接续用）
+
+**2026-05-25**
+
+- **工作台**：统计 `GET /case/dashboard/stats`；待办 `GET /case/dashboard/todos`。
+- **内容发布**：通告/今日提示可见性；管理页 `/config/announcement`；首页详情 + `/notice/*`。
+- **案件分类 CRUD**：`/config/category/**/manage` + `CategoryManage.vue`；改 **config** 须 `mvn install` 否则新路径 404。
+- **延期/挂账（首版）**：DEPT 申请 → DISPATCHER 审批；`/case/adjustment/**`；库 **`patch_case_adjustment.sql`**；改 **case/timer** 须 `mvn install`。
+- **联调修复**：核查/核实附件与上传提示；待核查/我立案过滤；`caseStatus.js` 状态中文。
+- **菜单管理**：占位未做；权限仍靠 `roleAccess.js`；若做建议档 A MVP（2～3 天）。
+- **本地**：8080、3000 已重启。
+- **明天优先**：分类页联调、核查全链路、工作台/内容发布、计时。详见 **`docs/PROJECT_PROGRESS.md` §2026-05-25**。
+
+**2026-05-24**
+
+- **采集端上报**：单页 + 部件/事件分表下拉；已去掉「市民举报」；`categoryType` 正确提交。
+- **案件计时（首版）**：`smart-cityguard-timer` + `CaseServiceImpl` 挂钩；处置阶段写 `deadline_time`；受理/派遣各 15min、核查核实 30min；模板时限解析已按「紧急=连续」修正。
+- **库**：已执行 `database/patch_case_timer.sql`（覆盖表 + 计时暂停列）。
+- **管理端列表**：剩余时限 + **截止时间** 列。
+- **明天优先**：计时全链路联调、**时限配置**管理页、挂账与暂停；可选重导 muban。详见 **`docs/PROJECT_PROGRESS.md` §2026-05-24**。
+
+**2026-05-19**
+
+- **案件主干（已落地）**：HANDLER 提交 → **`handle_finish`（处置人员已处置）** → DEPT **`POST /case/dept-confirm` 批转派遣员** → **`pending_check`** 由派遣员核实/结案；DEPT 不可核实/结案。
+- **关键文件**：`CaseServiceImpl`（`handleCase`/`deptConfirmCase`/`isAwaitingDeptConfirm`）、`CaseDetail.vue`、`collector-app` 的 `handle/*`、`roleAccess.js`。
+- **本地服务**：8080 / 3000 / 3003 / MinIO 9000；WinGet MinIO 见 `PROJECT_PROGRESS.md` 2026-05-19。
+- **明天优先**：补 HANDLER 测试账号、全链路复测批转按钮、旧 `pending_check` 数据清理；可选部门退回处置。
+
+**2026-05-05**
+
+- **环境**：已梳理仓库结构；本地为三端：管理端 `:3000`、采集端 H5 `:3003`、后端 `:8080`（Knife4j `/doc.html`）。
+- **踩坑**：Windows **PowerShell** 勿用 `cd /d ... && ...`；用 `Set-Location ...; npm run dev` / `mvn ...`。
+- **文档校正**：根目录 `README.md` 写采集端为 uni-app / `dev:h5`，与当前 **`collector-app` 实际为 Vite + Vue + Vant** 不一致；以代码与 `vite.config.js`（端口 3003、代理 `/api`）为准。
+- **移动端架构讨论（未决 → 明天可续）**：
+  - 现状：**纯 H5** 适合 MVP、内网浏览器或简单场景。
+  - 若目标为**应用商店级 APP**（推送、离线、后台、强相机/定位等）：需在 **H5 + Capacitor（或类似壳）**、**uni-app**、**Flutter/RN** 等路线中选型；保留现有 Vue 时 **Capacitor 迁移成本相对可控**。
+  - **可选下一步**：按采集端实际用到的能力（相机、地图、文件、定位）列清单，再定是否仅 H5、上壳还是换栈。
+
+**2026-05-11**
+
+- **admin-web 无限重定向**：问题与修复清单已写入 **`docs/continuation-notes.md` §8.3**（含控制台报错、`tryNextWithRoleGuard` 错误写法、`/no-permission` 兜底与 `roleAccess.js` 角色补齐）。
