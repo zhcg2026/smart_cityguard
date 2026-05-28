@@ -28,6 +28,7 @@ import com.cityguard.common.constant.CaseFlowOperateType;
 import com.cityguard.common.spi.UserNotificationSender;
 import com.cityguard.caseinfo.entity.*;
 import com.cityguard.caseinfo.mapper.*;
+import com.cityguard.caseinfo.support.DashboardPeriodHelper;
 import com.cityguard.caseinfo.service.CaseAdjustmentService;
 import com.cityguard.caseinfo.service.CaseService;
 import com.cityguard.common.constant.CaseStatusConstant;
@@ -393,8 +394,13 @@ public class CaseServiceImpl implements CaseService {
             wrapper.like(CaseInfo::getCaseCode, params.get("caseCode"));
         }
         String statGroup = params.get("statGroup") != null ? params.get("statGroup").toString().trim() : null;
+        String period = params.get("period") != null ? params.get("period").toString().trim() : null;
         if (statGroup != null && !statGroup.isBlank()) {
             applyDashboardStatGroup(wrapper, statGroup);
+            DashboardPeriodHelper.Range range = DashboardPeriodHelper.resolve(period);
+            if (range != null) {
+                DashboardPeriodHelper.applyPeriodFilter(wrapper, statGroup, range);
+            }
         } else if (params.get("caseStatus") != null && !params.get("caseStatus").toString().isBlank()) {
             wrapper.eq(CaseInfo::getCaseStatus, params.get("caseStatus"));
         }
@@ -407,13 +413,15 @@ public class CaseServiceImpl implements CaseService {
                 wrapper.apply("small_id IN (SELECT id FROM category_small WHERE big_id = {0} AND is_deleted = 0)", bigId);
             }
         }
-        LocalDateTime start = parseDateTimeParam(params.get("startTime"), false);
-        LocalDateTime end = parseDateTimeParam(params.get("endTime"), true);
-        if (start != null) {
-            wrapper.ge(CaseInfo::getReportTime, start);
-        }
-        if (end != null) {
-            wrapper.le(CaseInfo::getReportTime, end);
+        if (statGroup == null || statGroup.isBlank() || DashboardPeriodHelper.resolve(period) == null) {
+            LocalDateTime start = parseDateTimeParam(params.get("startTime"), false);
+            LocalDateTime end = parseDateTimeParam(params.get("endTime"), true);
+            if (start != null) {
+                wrapper.ge(CaseInfo::getReportTime, start);
+            }
+            if (end != null) {
+                wrapper.le(CaseInfo::getReportTime, end);
+            }
         }
         wrapper.orderByDesc(CaseInfo::getReportTime);
 
@@ -557,26 +565,57 @@ public class CaseServiceImpl implements CaseService {
     }
 
     @Override
-    public CaseDashboardStatsDto getDashboardStats(Long userId, List<String> roles) {
+    public CaseDashboardStatsDto getDashboardStats(Long userId, List<String> roles, String period) {
         CaseDashboardStatsDto stats = new CaseDashboardStatsDto();
-        stats.setPendingCases(countByDashboardStatGroup("pending", userId, roles));
-        stats.setProcessingCases(countByDashboardStatGroup("processing", userId, roles));
-        stats.setCompletedCases(countByDashboardStatGroup("completed", userId, roles));
-        stats.setOverdueCases(countByDashboardStatGroup("overdue", userId, roles));
-        stats.setCancelledCases(countByDashboardStatGroup("cancelled", userId, roles));
+        stats.setPendingCases(countByDashboardStatGroup("pending", userId, roles, period));
+        stats.setProcessingCases(countByDashboardStatGroup("processing", userId, roles, period));
+        stats.setCompletedCases(countByDashboardStatGroup("completed", userId, roles, period));
+        stats.setOverdueCases(countByDashboardStatGroup("overdue", userId, roles, period));
+        stats.setCancelledCases(countByDashboardStatGroup("cancelled", userId, roles, period));
         return stats;
     }
 
     @Override
     public CaseDashboardTodosDto getDashboardTodos(Long userId, List<String> roles, int limit) {
         int cap = limit <= 0 ? 10 : Math.min(limit, 30);
-        List<String> statuses = resolveDashboardTodoStatuses(roles);
+        List<CaseInfo> merged = collectMergedDashboardTodoCases(userId, roles);
         CaseDashboardTodosDto result = new CaseDashboardTodosDto();
+        List<CaseDashboardTodoItemDto> items = new ArrayList<>();
+        for (int i = 0; i < merged.size() && i < cap; i++) {
+            items.add(toDashboardTodoItem(merged.get(i)));
+        }
+        result.setItems(items);
+        return result;
+    }
+
+    @Override
+    public Page<CaseDashboardTodoItemDto> getDashboardTodosPage(Integer pageNum, Integer pageSize,
+                                                              Long userId, List<String> roles) {
+        List<CaseInfo> merged = collectMergedDashboardTodoCases(userId, roles);
+        int pn = pageNum != null && pageNum > 0 ? pageNum : 1;
+        int ps = pageSize != null && pageSize > 0 ? Math.min(pageSize, 100) : 10;
+        int total = merged.size();
+        int from = (pn - 1) * ps;
+        List<CaseDashboardTodoItemDto> records = new ArrayList<>();
+        if (from < total) {
+            int to = Math.min(from + ps, total);
+            for (int i = from; i < to; i++) {
+                records.add(toDashboardTodoItem(merged.get(i)));
+            }
+        }
+        Page<CaseDashboardTodoItemDto> page = new Page<>(pn, ps, total);
+        page.setRecords(records);
+        return page;
+    }
+
+    /** 按角色合并各待办队列，按截止时间与上报时间排序 */
+    private List<CaseInfo> collectMergedDashboardTodoCases(Long userId, List<String> roles) {
+        List<String> statuses = resolveDashboardTodoStatuses(roles);
         if (statuses.isEmpty()) {
-            return result;
+            return List.of();
         }
         Map<Long, CaseInfo> merged = new LinkedHashMap<>();
-        int perQueue = Math.max(cap, 5);
+        int perQueue = 200;
         for (String status : statuses) {
             Page<CaseInfo> page = getPendingCases(status, 1, perQueue, userId, roles);
             if (page.getRecords() == null) {
@@ -590,12 +629,8 @@ public class CaseServiceImpl implements CaseService {
         }
         List<CaseInfo> sorted = new ArrayList<>(merged.values());
         sorted.sort(this::compareDashboardTodoCases);
-        List<CaseDashboardTodoItemDto> items = new ArrayList<>();
-        for (int i = 0; i < sorted.size() && i < cap; i++) {
-            items.add(toDashboardTodoItem(sorted.get(i)));
-        }
-        result.setItems(items);
-        return result;
+        applyTimerDisplayList(sorted);
+        return sorted;
     }
 
     private List<String> resolveDashboardTodoStatuses(List<String> roles) {
@@ -698,9 +733,11 @@ public class CaseServiceImpl implements CaseService {
         };
     }
 
-    private long countByDashboardStatGroup(String statGroup, Long userId, List<String> roles) {
+    private long countByDashboardStatGroup(String statGroup, Long userId, List<String> roles, String period) {
         LambdaQueryWrapper<CaseInfo> wrapper = buildDashboardScopeWrapper(userId, roles);
         applyDashboardStatGroup(wrapper, statGroup);
+        DashboardPeriodHelper.Range range = DashboardPeriodHelper.resolve(period);
+        DashboardPeriodHelper.applyPeriodFilter(wrapper, statGroup, range);
         return caseInfoMapper.selectCount(wrapper);
     }
 

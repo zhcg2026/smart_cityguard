@@ -45,11 +45,12 @@ export function drillCaseReport(data) {
   })
 }
 
-// 工作台案件统计
-export function getCaseDashboardStats() {
+// 工作台案件统计（period: day | week | month | year）
+export function getCaseDashboardStats(params) {
   return request({
     url: '/case/dashboard/stats',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 
@@ -57,6 +58,15 @@ export function getCaseDashboardStats() {
 export function getCaseDashboardTodos(params) {
   return request({
     url: '/case/dashboard/todos',
+    method: 'get',
+    params
+  })
+}
+
+/** 工作台全部待办（分页，聚合各角色待办队列） */
+export function getCaseDashboardTodosPage(params) {
+  return request({
+    url: '/case/dashboard/todos/page',
     method: 'get',
     params
   })

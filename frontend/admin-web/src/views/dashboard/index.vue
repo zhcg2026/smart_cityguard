@@ -1,7 +1,17 @@
 <template>
   <div class="dashboard">
     <!-- 统计卡片 -->
-    <div class="stat-cards">
+    <div class="stat-section">
+      <div class="stat-section-header">
+        <span class="stat-section-title">案件统计</span>
+        <el-radio-group v-model="statsPeriod" size="small" @change="loadStatistics">
+          <el-radio-button label="day">日</el-radio-button>
+          <el-radio-button label="week">周</el-radio-button>
+          <el-radio-button label="month">月</el-radio-button>
+          <el-radio-button label="year">年</el-radio-button>
+        </el-radio-group>
+      </div>
+      <div class="stat-cards">
       <el-card
         v-for="item in statCards"
         :key="item.key"
@@ -20,51 +30,7 @@
         </div>
       </el-card>
     </div>
-
-    <!-- 快捷操作 -->
-    <el-card class="quick-actions">
-      <template #header>
-        <span>快捷操作</span>
-      </template>
-      <el-row :gutter="20">
-        <el-col :span="4">
-          <el-button type="primary" @click="goTo('/case/register')">
-            <el-icon><Document /></el-icon>
-            案件登记
-          </el-button>
-        </el-col>
-        <el-col :span="4">
-          <el-button type="success" @click="goTo('/task/verify')">
-            <el-icon><Search /></el-icon>
-            核查任务
-          </el-button>
-        </el-col>
-        <el-col :span="4">
-          <el-button type="warning" @click="goTo('/task/check')">
-            <el-icon><Finished /></el-icon>
-            核实任务
-          </el-button>
-        </el-col>
-        <el-col :span="4">
-          <el-button type="info" @click="goTo('/case/list')">
-            <el-icon><List /></el-icon>
-            案件列表
-          </el-button>
-        </el-col>
-        <el-col :span="4">
-          <el-button @click="goTo('/appeal/list')">
-            <el-icon><ChatDotSquare /></el-icon>
-            申诉处理
-          </el-button>
-        </el-col>
-        <el-col :span="4">
-          <el-button @click="goTo('/evaluation/index')">
-            <el-icon><DataAnalysis /></el-icon>
-            考核统计
-          </el-button>
-        </el-col>
-      </el-row>
-    </el-card>
+    </div>
 
     <!-- 今日提示 & 公文通告 -->
     <el-row :gutter="20">
@@ -78,18 +44,16 @@
               </el-button>
             </div>
           </template>
-          <el-scrollbar height="280px">
-            <div
-              v-for="tip in dailyTips"
-              :key="tip.id"
-              class="tip-item clickable"
-              @click="openContentDetail(tip, 'dailytip')"
-            >
-              <el-icon><Bell /></el-icon>
-              <span>{{ tip.title || tip.content }}</span>
-            </div>
-            <el-empty v-if="dailyTips.length === 0" description="暂无提示" />
-          </el-scrollbar>
+          <div
+            v-for="tip in dailyTips"
+            :key="tip.id"
+            class="tip-item clickable"
+            @click="openContentDetail(tip, 'dailytip')"
+          >
+            <el-icon><Bell /></el-icon>
+            <span class="item-text">{{ tip.title || tip.content }}</span>
+          </div>
+          <el-empty v-if="dailyTips.length === 0" description="暂无提示" :image-size="48" />
         </el-card>
       </el-col>
       <el-col :span="12">
@@ -102,21 +66,19 @@
               </el-button>
             </div>
           </template>
-          <el-scrollbar height="280px">
-            <div
-              v-for="item in announcements"
-              :key="item.id"
-              class="announcement-item clickable"
-              @click="openContentDetail(item, 'announcement')"
-            >
-              <el-tag :type="item.announcementType === 'urgent' ? 'danger' : 'info'" size="small">
-                {{ item.announcementType === 'urgent' ? '紧急' : item.announcementType === 'system' ? '系统' : '普通' }}
-              </el-tag>
-              <span class="title">{{ item.title }}</span>
-              <span class="date">{{ formatPublishTime(item.publishTime) }}</span>
-            </div>
-            <el-empty v-if="announcements.length === 0" description="暂无通告" />
-          </el-scrollbar>
+          <div
+            v-for="item in announcements"
+            :key="item.id"
+            class="announcement-item clickable"
+            @click="openContentDetail(item, 'announcement')"
+          >
+            <el-tag :type="item.announcementType === 'urgent' ? 'danger' : 'info'" size="small">
+              {{ item.announcementType === 'urgent' ? '紧急' : item.announcementType === 'system' ? '系统' : '普通' }}
+            </el-tag>
+            <span class="title">{{ item.title }}</span>
+            <span class="date">{{ formatPublishTime(item.publishTime) }}</span>
+          </div>
+          <el-empty v-if="announcements.length === 0" description="暂无通告" :image-size="48" />
         </el-card>
       </el-col>
     </el-row>
@@ -189,26 +151,9 @@ import {
 } from '@/api/config'
 import { getCaseDashboardStats, getCaseDashboardTodos } from '@/api/case'
 import { formatDateTime } from '@/utils/dateFormat'
-import { defaultPendingTabForRoles } from '@/utils/roleAccess'
-import { useUserStore } from '@/stores/user'
 import ContentDetailDialog from '@/components/ContentDetailDialog.vue'
 
 const router = useRouter()
-const userStore = useUserStore()
-
-const PENDING_TAB_ROUTE = {
-  acceptor_todo: '/case/pending-verify',
-  acceptor_pending_register: '/case/pending-register',
-  acceptor_pending_verify: '/case/pending-verify',
-  acceptor_collect_check: '/case/pending-check',
-  acceptor_pending_close: '/case/pending-close',
-  dispatcher_pending_dispatch: '/case/pending-dispatch',
-  dispatcher_pending_review: '/case/pending-review',
-  dispatcher_returned: '/case/returned',
-  handler_dept_todo: '/case/pending',
-  dept_confirm_todo: '/case/pending',
-  handling: '/case/pending'
-}
 
 const statistics = reactive({
   pendingCases: 0,
@@ -217,6 +162,8 @@ const statistics = reactive({
   overdueCases: 0,
   cancelledCases: 0
 })
+
+const statsPeriod = ref('month')
 
 const statCards = [
   { key: 'pending', field: 'pendingCases', label: '待处理案件', icon: Clock, iconClass: 'pending' },
@@ -255,7 +202,7 @@ onBeforeUnmount(() => {
 
 async function loadStatistics() {
   try {
-    const res = await getCaseDashboardStats()
+    const res = await getCaseDashboardStats({ period: statsPeriod.value })
     const data = res.data || {}
     statistics.pendingCases = data.pendingCases ?? 0
     statistics.processingCases = data.processingCases ?? 0
@@ -269,7 +216,7 @@ async function loadStatistics() {
 
 async function loadDailyTips() {
   try {
-    const res = await getDailyTip({ limit: 20 })
+    const res = await getDailyTip({ limit: 5 })
     dailyTips.value = res.data || []
   } catch (error) {
     console.error('获取每日提示失败:', error)
@@ -278,7 +225,7 @@ async function loadDailyTips() {
 
 async function loadAnnouncements() {
   try {
-    const res = await getAnnouncementList({ limit: 20 })
+    const res = await getAnnouncementList({ limit: 5 })
     announcements.value = res.data || []
   } catch (error) {
     console.error('获取通告失败:', error)
@@ -303,13 +250,11 @@ function goTo(path) {
 }
 
 function goPendingPage() {
-  const tab = defaultPendingTabForRoles(userStore.roles || [])
-  const path = PENDING_TAB_ROUTE[tab] || '/case/list'
-  router.push(path)
+  router.push({ name: 'CaseDashboardTodos' })
 }
 
 function goCaseList(statGroup) {
-  router.push({ path: '/case/list', query: { statGroup } })
+  router.push({ path: '/case/list', query: { statGroup, period: statsPeriod.value } })
 }
 
 function formatPublishTime(value) {
@@ -351,11 +296,27 @@ function getTodoStatusType(status) {
 
 <style lang="scss" scoped>
 .dashboard {
+  .stat-section {
+    margin-bottom: 20px;
+  }
+
+  .stat-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .stat-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #303133;
+  }
+
   .stat-cards {
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
-    margin-bottom: 20px;
 
     .stat-card {
       flex: 1 1 180px;
@@ -421,21 +382,14 @@ function getTodoStatusType(status) {
     }
   }
 
-  .quick-actions {
-    margin-bottom: 20px;
-
-    .el-button {
-      width: 100%;
-    }
-  }
-
   .daily-tip-card, .announcement-card {
     margin-bottom: 20px;
 
     .tip-item, .announcement-item {
-      padding: 10px 0;
+      padding: 8px 0;
       display: flex;
       align-items: center;
+      min-height: 36px;
 
       &.clickable {
         cursor: pointer;
@@ -451,6 +405,14 @@ function getTodoStatusType(status) {
       .el-icon {
         margin-right: 8px;
         color: #409eff;
+        flex-shrink: 0;
+      }
+
+      .item-text {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     }
 
@@ -458,11 +420,16 @@ function getTodoStatusType(status) {
       .title {
         flex: 1;
         margin-left: 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .date {
         color: #999;
         font-size: 12px;
+        flex-shrink: 0;
+        margin-left: 8px;
       }
     }
 

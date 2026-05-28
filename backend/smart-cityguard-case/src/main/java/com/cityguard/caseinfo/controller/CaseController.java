@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cityguard.caseinfo.dto.CaseAcceptorRegisterRequest;
 import com.cityguard.caseinfo.dto.CaseAssignHandlerRequest;
 import com.cityguard.caseinfo.dto.CaseDashboardStatsDto;
+import com.cityguard.caseinfo.dto.CaseDashboardTodoItemDto;
 import com.cityguard.caseinfo.dto.CaseDashboardTodosDto;
 import com.cityguard.caseinfo.dto.CaseDeleteRequest;
 import com.cityguard.caseinfo.dto.CaseDeptConfirmRequest;
@@ -76,7 +77,8 @@ public class CaseController {
             @RequestParam(required = false) Long categoryBigId,
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime,
-            @RequestParam(required = false) String statGroup) {
+            @RequestParam(required = false) String statGroup,
+            @RequestParam(required = false) String period) {
         Map<String, Object> params = new java.util.HashMap<>();
         params.put("caseCode", caseCode);
         params.put("caseStatus", caseStatus);
@@ -85,6 +87,7 @@ public class CaseController {
         params.put("startTime", startTime);
         params.put("endTime", endTime);
         params.put("statGroup", statGroup);
+        params.put("period", period);
         LoginUser user = currentUser();
         Long uid = user != null ? user.getId() : null;
         List<String> roles = user != null ? user.getRoles() : null;
@@ -126,11 +129,12 @@ public class CaseController {
 
     @Operation(summary = "工作台案件统计")
     @GetMapping("/dashboard/stats")
-    public Result<CaseDashboardStatsDto> getDashboardStats() {
+    public Result<CaseDashboardStatsDto> getDashboardStats(
+            @RequestParam(required = false) String period) {
         LoginUser user = currentUser();
         Long uid = user != null ? user.getId() : null;
         List<String> roles = user != null ? user.getRoles() : null;
-        return Result.success(caseService.getDashboardStats(uid, roles));
+        return Result.success(caseService.getDashboardStats(uid, roles, period));
     }
 
     @Operation(summary = "工作台待办事项（按角色聚合案件待办）")
@@ -141,6 +145,17 @@ public class CaseController {
         Long uid = user != null ? user.getId() : null;
         List<String> roles = user != null ? user.getRoles() : null;
         return Result.success(caseService.getDashboardTodos(uid, roles, limit));
+    }
+
+    @Operation(summary = "工作台全部待办（分页，按角色聚合各待办队列）")
+    @GetMapping("/dashboard/todos/page")
+    public Result<Page<CaseDashboardTodoItemDto>> getDashboardTodosPage(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        LoginUser user = currentUser();
+        Long uid = user != null ? user.getId() : null;
+        List<String> roles = user != null ? user.getRoles() : null;
+        return Result.success(caseService.getDashboardTodosPage(pageNum, pageSize, uid, roles));
     }
 
     @Operation(summary = "获取流程记录")

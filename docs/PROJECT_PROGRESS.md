@@ -4,7 +4,7 @@
 
 ---
 
-## 2026-05-28 工作小结（综合查询 + 考核统计 + 处置超时申诉）
+## 2026-05-28 工作小结（综合查询 + 考核统计 + 处置超时申诉 + 工作台优化）
 
 ### 当日摘要
 
@@ -12,8 +12,13 @@
 2. **P1/P2 考核统计 MVP**：按处置部门聚合指标；支持数字反查全页列表；申诉通过后超时类指标排除 `handle_timeout_exempt=1`。
 3. **P2+ 处置超时申诉（双审）**：部门提交 → 派遣员初审 → 受理员二审；一案一次；通过后统计豁免、界面保留「曾超时」痕迹。
 4. **菜单/路由**：街道社区隐藏；**采集员管理**独立菜单 `/collector/index`（原 `/geo/collector` 重定向）。
-5. **环境**：已执行 `database/patch_case_appeal_timeout.sql`；四端 8080/3000/3003/9000 已启动；改 **case/appeal/timer** 后须 `mvn install` 再重启 8080。
-6. **GitHub**：已推 `master`（`27e2c59`）。
+5. **工作台优化**：
+   - 移除快捷操作区；
+   - 统计卡片增加 **日/周/月/年** 周期（`GET /case/dashboard/stats?period=`），点击卡片带周期跳转列表；
+   - 今日提示 / 公文通告各只展示 **5 条**，其余从「更多」进入；
+   - **全部待办** 改为聚合页 `/case/todos`（`GET /case/dashboard/todos/page`），按角色合并各待办队列，不再误跳单一「待核实」列表。
+6. **环境**：已执行 `database/patch_case_appeal_timeout.sql`；四端 8080/3000/3003/9000 已启动；改 **case** 后须 `mvn install` 再重启 8080。
+7. **GitHub**：当日主功能已推 `27e2c59`；工作台优化待本次 push。
 
 | 层 | 内容 |
 |----|------|
@@ -22,7 +27,8 @@
 | **后端·统计** | `CaseReportService`、`POST /case/report/statistics`、`POST /case/report/drill`；`CaseReportMetricSql` |
 | **后端·申诉** | `TimeoutAppealController` `/appeal/timeout/**`；`TimeoutAppealServiceImpl`；移除旧 `AppealController` |
 | **后端·计时** | `CaseTimerService` 申诉通过后展示「曾超时（申诉通过，不计入考核）」；工作台超时排除豁免 |
-| **前端** | `CaseQuery.vue`、`evaluation/index.vue`（统计+反查）、`AppealList.vue` / `AppealDetail.vue`、`CaseDetail.vue` 提起申诉 |
+| **后端·工作台** | `DashboardPeriodHelper`；`collectMergedDashboardTodoCases`；`/case/dashboard/todos/page` |
+| **前端** | `CaseQuery.vue`、`evaluation/index.vue`、`AppealList/Detail`、`CaseDetail` 申诉、`CaseDashboardTodos.vue`、`dashboard/index.vue` 周期与布局 |
 | **文档** | `docs/case-comprehensive-query-design.md`、`docs/case-appeal-timeout-design.md` |
 
 ### 当日早些时候（采集员地图，已推 `20eec40`）
@@ -37,6 +43,7 @@
 | 考核统计 | 部门行指标、点击数字反查、返回统计表 |
 | 申诉 | DEPT 结案+曾超时 → 提交；DISPATCHER/ACCEPTOR 双审；通过后考核不计超时 |
 | 采集员地图 | 列表、片区绑定、按员过滤案件点 |
+| 工作台 | 统计周期切换；全部待办聚合页；提示/通告各 5 条 |
 
 ### 明天优先（接续）
 

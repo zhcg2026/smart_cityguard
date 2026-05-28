@@ -3,7 +3,7 @@
     <el-alert
       v-if="statGroupLabel"
       class="stat-group-alert"
-      :title="`当前筛选：${statGroupLabel}`"
+      :title="statFilterAlertTitle"
       type="info"
       show-icon
       closable
@@ -159,12 +159,33 @@ const STAT_GROUP_LABELS = {
   cancelled: '作废案件'
 }
 
+const STAT_PERIOD_LABELS = {
+  day: '今日',
+  week: '本周',
+  month: '本月',
+  year: '本年'
+}
+
 const statGroup = computed(() => {
   const g = route.query.statGroup
   return typeof g === 'string' ? g : ''
 })
 
+const dashboardPeriod = computed(() => {
+  const p = route.query.period
+  if (typeof p !== 'string') return ''
+  return ['day', 'week', 'month', 'year'].includes(p) ? p : ''
+})
+
 const statGroupLabel = computed(() => STAT_GROUP_LABELS[statGroup.value] || '')
+
+const statFilterAlertTitle = computed(() => {
+  if (!statGroupLabel.value) return ''
+  const periodLabel = STAT_PERIOD_LABELS[dashboardPeriod.value]
+  return periodLabel
+    ? `当前筛选：${periodLabel}${statGroupLabel.value}`
+    : `当前筛选：${statGroupLabel.value}`
+})
 
 const isAdmin = computed(() => (userStore.roles || []).includes(RoleCode.ADMIN))
 
@@ -204,7 +225,7 @@ onMounted(async () => {
   window.addEventListener('cityguard:refresh-lists', onRefreshLists)
 })
 
-watch(statGroup, () => {
+watch([statGroup, dashboardPeriod], () => {
   pageNum.value = 1
   loadCaseList()
 })
@@ -225,15 +246,17 @@ async function loadCategoryBigList() {
 async function loadCaseList() {
   loading.value = true
   try {
+    const useDashboardPeriod = statGroup.value && dashboardPeriod.value
     const params = {
       pageNum: pageNum.value,
       pageSize: pageSize.value,
       caseCode: searchForm.caseCode || undefined,
       caseStatus: statGroup.value ? undefined : (searchForm.caseStatus || undefined),
       statGroup: statGroup.value || undefined,
+      period: useDashboardPeriod ? dashboardPeriod.value : undefined,
       categoryBigId: searchForm.categoryBigId || undefined,
-      startTime: formatDateParam(searchForm.reportTime?.[0]),
-      endTime: formatDateParam(searchForm.reportTime?.[1])
+      startTime: useDashboardPeriod ? undefined : formatDateParam(searchForm.reportTime?.[0]),
+      endTime: useDashboardPeriod ? undefined : formatDateParam(searchForm.reportTime?.[1])
     }
     const res = await getCaseList(params)
     caseList.value = res.data?.records || []

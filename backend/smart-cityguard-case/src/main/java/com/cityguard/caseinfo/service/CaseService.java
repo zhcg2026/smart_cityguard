@@ -3,6 +3,7 @@ package com.cityguard.caseinfo.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cityguard.caseinfo.dto.CaseAcceptorReturnDispatcherRequest;
 import com.cityguard.caseinfo.dto.CaseDashboardStatsDto;
+import com.cityguard.caseinfo.dto.CaseDashboardTodoItemDto;
 import com.cityguard.caseinfo.dto.CaseDashboardTodosDto;
 import com.cityguard.caseinfo.dto.CaseAcceptorRegisterRequest;
 import com.cityguard.caseinfo.dto.CaseAssignHandlerRequest;
@@ -43,9 +44,12 @@ public interface CaseService {
 
     Page<CaseInfo> getMyCaseList(Long reporterId, Integer pageNum, Integer pageSize);
 
-    CaseDashboardStatsDto getDashboardStats(Long userId, List<String> roles);
+    CaseDashboardStatsDto getDashboardStats(Long userId, List<String> roles, String period);
 
     CaseDashboardTodosDto getDashboardTodos(Long userId, List<String> roles, int limit);
+
+    Page<CaseDashboardTodoItemDto> getDashboardTodosPage(Integer pageNum, Integer pageSize,
+                                                         Long userId, List<String> roles);
 
     CaseInfo registerCase(CaseRegisterRequest request, Long operatorId, String operatorName);
 

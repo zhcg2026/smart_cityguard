@@ -59,6 +59,12 @@ const routes = [
         meta: { title: '案件列表', roles: RoleGroups.CASE }
       },
       {
+        path: 'todos',
+        name: 'CaseDashboardTodos',
+        component: () => import('@/views/case/CaseDashboardTodos.vue'),
+        meta: { title: '全部待办', roles: RoleGroups.DASHBOARD, hidden: true, activeMenu: '/dashboard' }
+      },
+      {
         path: 'register',
         name: 'CaseManualRegister',
         component: () => import('@/views/case/CaseManualRegister.vue'),
