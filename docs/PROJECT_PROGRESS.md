@@ -18,7 +18,7 @@
    - 今日提示 / 公文通告各只展示 **5 条**，其余从「更多」进入；
    - **全部待办** 改为聚合页 `/case/todos`（`GET /case/dashboard/todos/page`），按角色合并各待办队列，不再误跳单一「待核实」列表。
 6. **环境**：已执行 `database/patch_case_appeal_timeout.sql`；四端 8080/3000/3003/9000 已启动；改 **case** 后须 `mvn install` 再重启 8080。
-7. **GitHub**：当日主功能已推 `27e2c59`；工作台优化待本次 push。
+7. **GitHub**：已推 `master`（`27e2c59` 主功能；`602dae3` 工作台优化）。
 
 | 层 | 内容 |
 |----|------|

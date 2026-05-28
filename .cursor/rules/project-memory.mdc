@@ -111,7 +111,7 @@ Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-m
 - **P1/P2 考核统计**：`POST /case/report/statistics|drill` + `evaluation/index.vue`；反查全页列表；超时指标排除 `handle_timeout_exempt`。
 - **P2+ 处置超时申诉**：双审 MVP（`/appeal/timeout/**`）；库 **`patch_case_appeal_timeout.sql`**；DEPT 案件详情提起申诉。
 - **菜单**：街道社区隐藏；采集员管理独立 `/collector/index`。
-- **GitHub**：已同步 `master`（`27e2c59` 主功能 + 工作台优化待 push）。
+- **GitHub**：已同步 `master`（`602dae3` 工作台优化；`27e2c59` 综合查询/统计/申诉）。
 - **工作台（续）**：统计卡片日/周/月/年；全部待办聚合 `/case/todos`；移除快捷操作；提示/通告各 5 条。
 - **明天优先**：上述三模块全链路联调验收。详见 **`docs/PROJECT_PROGRESS.md` §2026-05-28**。
 
