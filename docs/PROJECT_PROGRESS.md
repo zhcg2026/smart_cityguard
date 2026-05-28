@@ -13,6 +13,7 @@
 3. **P2+ 处置超时申诉（双审）**：部门提交 → 派遣员初审 → 受理员二审；一案一次；通过后统计豁免、界面保留「曾超时」痕迹。
 4. **菜单/路由**：街道社区隐藏；**采集员管理**独立菜单 `/collector/index`（原 `/geo/collector` 重定向）。
 5. **环境**：已执行 `database/patch_case_appeal_timeout.sql`；四端 8080/3000/3003/9000 已启动；改 **case/appeal/timer** 后须 `mvn install` 再重启 8080。
+6. **GitHub**：已推 `master`（`27e2c59`）。
 
 | 层 | 内容 |
 |----|------|
