@@ -2,6 +2,7 @@ package com.cityguard.appeal.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 @Data
@@ -12,15 +13,22 @@ public class AppealAttachment {
     private Long id;
 
     private Long appealId;
-
-    private String fileUrl;
-
-    private String fileName;
+    private Long reviewId;
 
     private String fileType;
+    private String fileName;
+    private String filePath;
+    private Integer fileSize;
+    private String fileExt;
 
-    private LocalDateTime uploadTime;
+    private String useType;
+
+    private Long uploaderId;
+    private String uploaderName;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
+
+    @TableLogic
+    private Integer isDeleted;
 }

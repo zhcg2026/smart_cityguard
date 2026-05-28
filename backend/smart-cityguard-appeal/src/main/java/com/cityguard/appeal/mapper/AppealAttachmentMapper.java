@@ -10,6 +10,6 @@ import java.util.List;
 @Mapper
 public interface AppealAttachmentMapper extends BaseMapper<AppealAttachment> {
 
-    @Select("SELECT * FROM appeal_attachment WHERE appeal_id = #{appealId} ORDER BY upload_time")
+    @Select("SELECT * FROM appeal_attachment WHERE appeal_id = #{appealId} AND is_deleted = 0 ORDER BY create_time")
     List<AppealAttachment> selectByAppealId(Long appealId);
 }

@@ -4,7 +4,53 @@
 
 ---
 
-## 2026-05-28 工作小结（P0 验收 + P1 采集员地图）
+## 2026-05-28 工作小结（综合查询 + 考核统计 + 处置超时申诉）
+
+### 当日摘要
+
+1. **P1 综合查询引擎**：管理端多条件分页检索上线；菜单在 **考核评价 → 综合查询**（`/evaluation/query`，旧 `/case/query` 重定向）。
+2. **P1/P2 考核统计 MVP**：按处置部门聚合指标；支持数字反查全页列表；申诉通过后超时类指标排除 `handle_timeout_exempt=1`。
+3. **P2+ 处置超时申诉（双审）**：部门提交 → 派遣员初审 → 受理员二审；一案一次；通过后统计豁免、界面保留「曾超时」痕迹。
+4. **菜单/路由**：街道社区隐藏；**采集员管理**独立菜单 `/collector/index`（原 `/geo/collector` 重定向）。
+5. **环境**：已执行 `database/patch_case_appeal_timeout.sql`；四端 8080/3000/3003/9000 已启动；改 **case/appeal/timer** 后须 `mvn install` 再重启 8080。
+
+| 层 | 内容 |
+|----|------|
+| **库** | `patch_case_appeal_timeout.sql`（`case_info.handle_timeout_exempt`、`handle_timeout_exempt_appeal_id`） |
+| **后端·查询** | `CaseQueryCriteria`、`POST /case/query`；角色范围过滤 |
+| **后端·统计** | `CaseReportService`、`POST /case/report/statistics`、`POST /case/report/drill`；`CaseReportMetricSql` |
+| **后端·申诉** | `TimeoutAppealController` `/appeal/timeout/**`；`TimeoutAppealServiceImpl`；移除旧 `AppealController` |
+| **后端·计时** | `CaseTimerService` 申诉通过后展示「曾超时（申诉通过，不计入考核）」；工作台超时排除豁免 |
+| **前端** | `CaseQuery.vue`、`evaluation/index.vue`（统计+反查）、`AppealList.vue` / `AppealDetail.vue`、`CaseDetail.vue` 提起申诉 |
+| **文档** | `docs/case-comprehensive-query-design.md`、`docs/case-appeal-timeout-design.md` |
+
+### 当日早些时候（采集员地图，已推 `20eec40`）
+
+- **P1 采集员地图**：`/geo/collector` 首版；选中采集员后地图仅显示该员 `reporter_id` 上报案件。
+
+### 联调 / 验收清单（待用户全测）
+
+| 模块 | 要点 |
+|------|------|
+| 综合查询 | 多条件组合、角色可见范围、分页 |
+| 考核统计 | 部门行指标、点击数字反查、返回统计表 |
+| 申诉 | DEPT 结案+曾超时 → 提交；DISPATCHER/ACCEPTOR 双审；通过后考核不计超时 |
+| 采集员地图 | 列表、片区绑定、按员过滤案件点 |
+
+### 明天优先（接续）
+
+1. 申诉 + 综合查询 + 考核统计 **全链路联调验收**（按上表逐项打勾）。
+2. 考核统计可选：处置超时指标与 `case_timer_record.is_timeout` 完全对齐（当前部分仍用 `handle_finish_time` 与 `deadline_time` 比较）。
+3. 采集员地图可选增强：任务点、按片区统计。
+4. P0 小尾巴（可选）：挂账到期改库抽测。
+
+**本地联调**：8080 / 3000 / 3003 / 9000；改 **case/appeal/timer** → `mvn clean install -pl smart-cityguard-appeal,smart-cityguard-case,smart-cityguard-timer -am -DskipTests` → 重启 8080。
+
+---
+
+## 2026-05-28 工作小结（P0 验收 + P1 采集员地图）— 归档
+
+> 本节为当日较早记录；综合查询/考核统计/申诉见上一节。
 
 ### 当日摘要
 
@@ -29,24 +75,18 @@
 | 选中采集员仅看其上报案件 | 通过 |
 | 近 7/30/90 天筛选 | 通过 |
 
-### 明天优先（接续）
-
-1. **P1 综合查询引擎**（管理端多条件检索，与报表共用）。
-2. 采集员地图可选增强：实时定位、核查/核实任务点、按片区统计案件数。
-3. P0 小尾巴（可选）：挂账到期改库抽测；工作台待办并入核查/核实任务。
-
 **本地联调**：8080 / 3000 / 3003 / 9000；改 **geo** → `mvn clean install -pl smart-cityguard-geo -am -DskipTests` → 重启 8080。
 
 ---
 
-## 路线图（2026-05-27 更新）
+## 路线图（2026-05-28 更新）
 
 | 优先级 | 模块 | 状态 |
 |--------|------|------|
 | **P0** | 延期 + 挂账（表、API、计时、DEPT 申请 + 派遣员待审、定时恢复） | **已联调，基本打通** |
-| **P1** | 综合查询引擎、采集员地图页 | **采集员地图首版已落地**；综合查询待开发 |
-| **P2** | 统计报表 4-A MVP | 待开发 |
-| **P2+** | 申诉双审 + 超时剔除统计 | 待开发（本期不做） |
+| **P1** | 综合查询引擎、采集员地图页 | **均已首版落地**（待全链路验收） |
+| **P2** | 统计报表 4-A MVP | **考核统计首版已落地**（反查、部门聚合）；其余报表待开发 |
+| **P2+** | 申诉双审 + 超时剔除统计 | **处置超时申诉 MVP 已落地**（待联调验收） |
 
 ---
 

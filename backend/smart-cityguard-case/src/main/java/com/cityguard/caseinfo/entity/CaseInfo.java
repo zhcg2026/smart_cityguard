@@ -113,6 +113,11 @@ public class CaseInfo {
     // 申诉信息
     private String appealStatus;
 
+    /** 处置超时申诉通过：统计按未超时，界面仍展示曾超时 */
+    private Integer handleTimeoutExempt;
+
+    private Long handleTimeoutExemptAppealId;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
@@ -149,6 +154,10 @@ public class CaseInfo {
     /** 处置是否已超时（非表字段） */
     @TableField(exist = false)
     private Boolean handleTimeout;
+
+    /** 处置阶段计时是否曾超时（非表字段，含申诉通过后仍 true） */
+    @TableField(exist = false)
+    private Boolean handleStageTimedOut;
 
     /** 是否有待审批延期申请（非表字段） */
     @TableField(exist = false)

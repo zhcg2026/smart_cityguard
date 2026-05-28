@@ -18,6 +18,33 @@ export function getCaseList(params) {
   })
 }
 
+/** 综合查询（多条件分页） */
+export function queryCases(data) {
+  return request({
+    url: '/case/query',
+    method: 'post',
+    data
+  })
+}
+
+/** 考核统计（按处置部门） */
+export function getCaseReportStatistics(data) {
+  return request({
+    url: '/case/report/statistics',
+    method: 'post',
+    data
+  })
+}
+
+/** 考核统计数字反查 */
+export function drillCaseReport(data) {
+  return request({
+    url: '/case/report/drill',
+    method: 'post',
+    data
+  })
+}
+
 // 工作台案件统计
 export function getCaseDashboardStats() {
   return request({

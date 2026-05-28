@@ -20,7 +20,15 @@
         </dependency>
         <dependency>
             <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-auth</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
             <artifactId>smart-cityguard-case</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cityguard</groupId>
+            <artifactId>smart-cityguard-timer</artifactId>
         </dependency>
     </dependencies>
 </project>

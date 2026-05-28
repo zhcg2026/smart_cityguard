@@ -93,6 +93,8 @@
             </el-button>
             <el-button v-if="canApplyExtension" type="warning" plain @click="openAdjustmentApply('extension')">申请延期</el-button>
             <el-button v-if="canApplySuspend" type="warning" plain @click="openAdjustmentApply('suspend')">申请挂账</el-button>
+            <el-button v-if="canSubmitTimeoutAppeal" type="warning" @click="openTimeoutAppealDialog">提起申诉</el-button>
+            <el-button v-if="timeoutAppeal?.id" type="primary" link @click="goTimeoutAppealDetail">查看申诉</el-button>
             <el-button v-if="canSendCheck" type="info" plain @click="handleSendCheck">发送核查</el-button>
             <el-button v-if="canSendVerifyTask" type="info" plain @click="handleSendVerifyTask">发送核实</el-button>
             <el-button v-if="canRegister" type="primary" @click="handleRegister">立案</el-button>
@@ -157,6 +159,22 @@
           {{ caseInfo.currentHandlerName }}
         </el-descriptions-item>
         <el-descriptions-item label="处置截止时间">{{ caseInfo.deadlineTime || '--' }}</el-descriptions-item>
+        <el-descriptions-item v-if="caseInfo.timeRemaining" label="处置时限">
+          {{ caseInfo.timeRemaining }}
+          <el-tag v-if="caseInfo.handleTimeoutExempt === 1" type="success" size="small" class="exempt-inline-tag">
+            不计超时
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item
+          v-if="caseInfo.handleStageTimedOut || caseInfo.handleTimeoutExempt === 1"
+          label="处置超时"
+        >
+          <span v-if="caseInfo.handleStageTimedOut">曾超时</span>
+          <span v-else>否</span>
+          <el-tag v-if="caseInfo.handleTimeoutExempt === 1" type="success" size="small" class="exempt-inline-tag">
+            申诉通过
+          </el-tag>
+        </el-descriptions-item>
         <el-descriptions-item v-if="caseInfo.extensionApprovedCount > 0" label="已批准延期">
           {{ caseInfo.extensionApprovedCount }} 次
         </el-descriptions-item>
@@ -397,6 +415,40 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="timeoutAppealDialogVisible" title="处置超时申诉" width="520px" destroy-on-close>
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        title="仅已结案且处置阶段曾超时的本部门案件可申诉，一案仅可提交一次。"
+        class="appeal-dialog-hint"
+      />
+      <el-form label-width="88px" class="appeal-form">
+        <el-form-item label="申诉说明" required>
+          <el-input
+            v-model="timeoutAppealForm.appealDesc"
+            type="textarea"
+            :rows="4"
+            placeholder="请说明客观因素"
+          />
+        </el-form-item>
+        <el-form-item label="证明材料">
+          <el-upload
+            list-type="picture-card"
+            :limit="5"
+            :http-request="uploadAppealFile"
+            v-model:file-list="timeoutAppealFileList"
+          >
+            <el-icon><Plus /></el-icon>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="timeoutAppealDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="timeoutAppealSubmitting" @click="submitTimeoutAppeal">提交</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog
       v-model="adjustmentDialogVisible"
       :title="adjustmentDialogTitle"
@@ -429,8 +481,9 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, onActivated, watch, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import {
   getCaseDetail,
   getCollectorCandidates,
@@ -458,6 +511,7 @@ import {
   getCaseAdjustmentList,
   reviewCaseAdjustment
 } from '@/api/case'
+import { getTimeoutAppealByCase, submitTimeoutAppeal as apiSubmitTimeoutAppeal } from '@/api/appeal'
 import { getRespGridDetail, getRespGridList, checkRespGridLocation } from '@/api/geo'
 import { getDeptTree, getUserList } from '@/api/system'
 import request from '@/utils/request'
@@ -467,6 +521,7 @@ import { RoleCode } from '@/utils/roleAccess'
 import { formatCaseStatusLabel, getCaseStatusTagType } from '@/utils/caseStatus'
 
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
 
 /** 从待核实/待我结案队列进入时限定按钮：verify=仅核实，close=仅结案 */
@@ -503,6 +558,13 @@ const adjustmentForm = reactive({
   suspendUntil: ''
 })
 const adjustmentRecords = ref([])
+const timeoutAppeal = ref(null)
+const timeoutAppealDialogVisible = ref(false)
+const timeoutAppealSubmitting = ref(false)
+const timeoutAppealFileList = ref([])
+const timeoutAppealForm = reactive({
+  appealDesc: ''
+})
 
 const caseInfo = ref({})
 const attachments = ref([])
@@ -728,6 +790,25 @@ const suspendAlertTitle = computed(() => {
 const adjustmentDialogTitle = computed(() =>
   adjustmentForm.applyType === 'suspend' ? '申请挂账' : '申请延期'
 )
+
+const CLOSED_STATUSES = ['closed', 'forced_close']
+
+const canSubmitTimeoutAppeal = computed(() => {
+  if (!hasRole(RoleCode.DEPT)) return false
+  const c = caseInfo.value
+  if (!c?.id || !CLOSED_STATUSES.includes(c.caseStatus)) return false
+  if (!c.handleStageTimedOut) return false
+  if (c.handleTimeoutExempt === 1) return false
+  if (timeoutAppeal.value?.id) return false
+  const deptId = userStore.userInfo?.departmentId
+  return deptId != null && c.handleDeptId === deptId
+})
+
+function goTimeoutAppealDetail() {
+  if (timeoutAppeal.value?.id) {
+    router.push({ name: 'AppealDetail', params: { id: timeoutAppeal.value.id } })
+  }
+}
 
 /** 当案派遣员或管理员/值班长可审批延期/挂账 */
 const canReviewPendingAdjustment = computed(() => {
@@ -1334,12 +1415,67 @@ async function enrichRespGridDisplay() {
   }
 }
 
+async function loadTimeoutAppeal(caseId) {
+  try {
+    const res = await getTimeoutAppealByCase(caseId)
+    timeoutAppeal.value = res.data || null
+  } catch (_) {
+    timeoutAppeal.value = null
+  }
+}
+
+function openTimeoutAppealDialog() {
+  timeoutAppealForm.appealDesc = ''
+  timeoutAppealFileList.value = []
+  timeoutAppealDialogVisible.value = true
+}
+
+async function uploadAppealFile(options) {
+  try {
+    const formData = new FormData()
+    formData.append('file', options.file)
+    const res = await request({
+      url: '/file/upload',
+      method: 'post',
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    const url = typeof res.data === 'string' ? res.data : ''
+    options.onSuccess(res, options.file)
+    if (url) options.file.url = url
+  } catch (e) {
+    options.onError(e)
+  }
+}
+
+async function submitTimeoutAppeal() {
+  if (!timeoutAppealForm.appealDesc.trim()) {
+    ElMessage.warning('请填写申诉说明')
+    return
+  }
+  timeoutAppealSubmitting.value = true
+  try {
+    await apiSubmitTimeoutAppeal({
+      caseId: caseInfo.value.id,
+      appealDesc: timeoutAppealForm.appealDesc.trim(),
+      attachmentPaths: normalizeUploadUrls(timeoutAppealFileList.value)
+    })
+    ElMessage.success('申诉已提交')
+    timeoutAppealDialogVisible.value = false
+    await loadTimeoutAppeal(caseInfo.value.id)
+    await loadCaseDetail(caseInfo.value.id)
+  } finally {
+    timeoutAppealSubmitting.value = false
+  }
+}
+
 async function loadCaseDetail(id) {
   loading.value = true
   try {
     const res = await getCaseDetail(id)
     caseInfo.value = res.data || {}
     await enrichRespGridDisplay()
+    await loadTimeoutAppeal(id)
     try {
       const adj = await getCaseAdjustmentList(id)
       adjustmentRecords.value = adj.data || []
@@ -1857,6 +1993,16 @@ async function submitProcess() {
   line-height: 1.5;
 }
 
+.exempt-inline-tag {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.appeal-dialog-hint {
+  margin-bottom: 12px;
+}
+.appeal-form {
+  margin-top: 8px;
+}
 .adjustment-form-tip {
   margin: 8px 0 0;
   font-size: 12px;

@@ -36,6 +36,14 @@ export const RoleGroups = {
     RoleCode.SUPERVISOR,
     RoleCode.ADMIN
   ],
+  /** 综合查询 */
+  CASE_QUERY: [
+    RoleCode.ADMIN,
+    RoleCode.SUPERVISOR,
+    RoleCode.LEADER,
+    RoleCode.ACCEPTOR,
+    RoleCode.DISPATCHER
+  ],
   /** 受理员案件管理子菜单 */
   ACCEPTOR_CASE: [RoleCode.ACCEPTOR, RoleCode.ADMIN, RoleCode.SUPERVISOR],
   /** 派遣员案件管理子菜单 */
@@ -47,13 +55,22 @@ export const RoleGroups = {
   /** @deprecated 处置人员不再使用独立任务菜单，见 TASK_LEDGER */
   TASK: [RoleCode.ADMIN, RoleCode.SUPERVISOR],
   APPEAL: [
+    RoleCode.DEPT,
     RoleCode.ACCEPTOR,
     RoleCode.DISPATCHER,
-    RoleCode.HANDLER,
     RoleCode.SUPERVISOR,
     RoleCode.ADMIN
   ],
   EVALUATION: [RoleCode.EVALUATOR, RoleCode.SUPERVISOR, RoleCode.ADMIN],
+  /** 考核评价父菜单（含考核统计 + 综合查询各子项按自身 roles 再过滤） */
+  EVALUATION_SECTION: [
+    RoleCode.EVALUATOR,
+    RoleCode.SUPERVISOR,
+    RoleCode.ADMIN,
+    RoleCode.LEADER,
+    RoleCode.ACCEPTOR,
+    RoleCode.DISPATCHER
+  ],
   GEO: [RoleCode.ADMIN, RoleCode.SUPERVISOR],
   SYSTEM: [RoleCode.ADMIN],
   CONFIG: [RoleCode.ADMIN, RoleCode.SUPERVISOR],

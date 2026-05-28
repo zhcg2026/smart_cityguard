@@ -201,10 +201,30 @@ public class CaseTimerService {
             info.setTimeRemaining(formatRemaining(remainSec));
             info.setHandleTimeout(remainSec < 0);
         } else if (record.getActualFinishTime() != null) {
-            info.setHandleTimeout(record.getIsTimeout() != null && record.getIsTimeout() == 1);
-            info.setTimeRemaining(record.getIsTimeout() != null && record.getIsTimeout() == 1 ? "已超时" : "按时完成");
+            boolean wasTimeout = record.getIsTimeout() != null && record.getIsTimeout() == 1;
+            boolean exempt = isHandleTimeoutExempt(caseId);
+            if (exempt && wasTimeout) {
+                info.setHandleTimeout(false);
+                info.setTimeRemaining("曾超时（申诉通过，不计入考核）");
+            } else {
+                info.setHandleTimeout(wasTimeout);
+                info.setTimeRemaining(wasTimeout ? "已超时" : "按时完成");
+            }
         }
         return info;
+    }
+
+    public boolean wasHandleStageTimedOut(Long caseId) {
+        CaseTimerRecord timer = caseTimerRecordMapper.selectLatestByCaseAndStage(
+                caseId, TimerStageConstant.HANDLE);
+        return timer != null && timer.getIsTimeout() != null && timer.getIsTimeout() == 1;
+    }
+
+    private boolean isHandleTimeoutExempt(Long caseId) {
+        List<Integer> rows = jdbcTemplate.query(
+                "SELECT handle_timeout_exempt FROM case_info WHERE id = ? AND is_deleted = 0",
+                (rs, rowNum) -> rs.getInt(1), caseId);
+        return !rows.isEmpty() && rows.get(0) == 1;
     }
 
     /** 列表展示：优先处置阶段；未派遣时展示进行中的受理/派遣截止 */

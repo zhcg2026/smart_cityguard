@@ -226,25 +226,63 @@ const routes = [
         name: 'AppealList',
         component: () => import('@/views/appeal/AppealList.vue'),
         meta: { title: '申诉列表' }
+      },
+      {
+        path: 'detail/:id',
+        name: 'AppealDetail',
+        component: () => import('@/views/appeal/AppealDetail.vue'),
+        meta: { title: '申诉详情', hidden: true, activeMenu: '/appeal/list' }
       }
     ]
   },
-  // 考核评价
+  // 考核评价（综合查询与考核统计并列；后续统计报表共用查询条件）
   {
     path: '/evaluation',
     component: () => import('@/layouts/BasicLayout.vue'),
     redirect: '/evaluation/index',
-    meta: { title: '考核评价', icon: 'DataAnalysis', roles: RoleGroups.EVALUATION },
+    meta: { title: '考核评价', icon: 'DataAnalysis', roles: RoleGroups.EVALUATION_SECTION },
     children: [
       {
         path: 'index',
         name: 'EvaluationIndex',
         component: () => import('@/views/evaluation/index.vue'),
-        meta: { title: '考核统计' }
+        meta: { title: '考核统计', roles: RoleGroups.EVALUATION }
+      },
+      {
+        path: 'query',
+        name: 'CaseQuery',
+        component: () => import('@/views/case/CaseQuery.vue'),
+        meta: { title: '综合查询', roles: RoleGroups.CASE_QUERY }
       }
     ]
   },
-  // 地理信息
+  {
+    path: '/case/query',
+    redirect: '/evaluation/query',
+    meta: { hidden: true }
+  },
+  // 采集员管理（独立一级菜单）
+  {
+    path: '/collector',
+    component: () => import('@/layouts/BasicLayout.vue'),
+    redirect: '/collector/index',
+    meta: { roles: RoleGroups.GEO },
+    children: [
+      {
+        path: 'index',
+        name: 'CollectorManage',
+        component: () => import('@/views/geo/CollectorManage.vue'),
+        meta: { title: '采集员管理', icon: 'Avatar', roles: RoleGroups.GEO }
+      }
+    ]
+  },
+  // 旧路径兼容（原地理信息子菜单）
+  {
+    path: '/geo/collector',
+    redirect: '/collector/index',
+    meta: { hidden: true }
+  },
+  // 地理信息（街道社区暂隐藏，恢复开发时去掉 street 路由的 meta.hidden）
   {
     path: '/geo',
     component: () => import('@/layouts/BasicLayout.vue'),
@@ -258,16 +296,10 @@ const routes = [
         meta: { title: '片区管理' }
       },
       {
-        path: 'collector',
-        name: 'CollectorManage',
-        component: () => import('@/views/geo/CollectorManage.vue'),
-        meta: { title: '采集员管理' }
-      },
-      {
         path: 'street',
         name: 'StreetManage',
         component: () => import('@/views/geo/StreetManage.vue'),
-        meta: { title: '街道社区' }
+        meta: { title: '街道社区', hidden: true }
       }
     ]
   },

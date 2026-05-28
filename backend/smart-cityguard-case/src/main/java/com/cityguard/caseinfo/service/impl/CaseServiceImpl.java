@@ -17,6 +17,8 @@ import com.cityguard.caseinfo.dto.CaseDeptConfirmRequest;
 import com.cityguard.caseinfo.dto.CaseDeptReturnRequest;
 import com.cityguard.caseinfo.dto.CaseDispatcherForwardRequest;
 import com.cityguard.caseinfo.dto.CaseDispatcherReturnAcceptorRequest;
+import com.cityguard.caseinfo.dto.CaseDateFilter;
+import com.cityguard.caseinfo.dto.CaseQueryCriteria;
 import com.cityguard.caseinfo.dto.CaseRegisterRequest;
 import com.cityguard.caseinfo.dto.CaseReturnRequest;
 import com.cityguard.caseinfo.dto.CaseRevokeAssignRequest;
@@ -88,6 +90,7 @@ public class CaseServiceImpl implements CaseService {
     private static final String ROLE_DEPT = "DEPT";
     private static final String ROLE_ADMIN = "ADMIN";
     private static final String ROLE_SUPERVISOR = "SUPERVISOR";
+    private static final String ROLE_LEADER = "LEADER";
 
     /**
      * 工作台「待处理」：入口阶段 + 已派至部门但尚未指派处置人员（待指派）+ 部门回退待重派。
@@ -323,6 +326,7 @@ public class CaseServiceImpl implements CaseService {
         if (display.getHandleTimeout() != null) {
             caseInfo.setHandleTimeout(display.getHandleTimeout());
         }
+        caseInfo.setHandleStageTimedOut(caseTimerService.wasHandleStageTimedOut(caseInfo.getId()));
         if (caseInfo.getDeadlineTime() == null && display.getDeadlineTime() != null) {
             caseInfo.setDeadlineTime(display.getDeadlineTime());
         }
@@ -415,6 +419,26 @@ public class CaseServiceImpl implements CaseService {
 
         Page<CaseInfo> pageResult = caseInfoMapper.selectPage(page, wrapper);
         applyTimerDisplayList(pageResult.getRecords());
+        return pageResult;
+    }
+
+    @Override
+    public Page<CaseInfo> queryCases(CaseQueryCriteria criteria, Long userId, List<String> roles) {
+        assertCaseQueryRole(roles);
+        CaseQueryCriteria q = criteria != null ? criteria : new CaseQueryCriteria();
+        int pageNum = q.getPageNum() != null && q.getPageNum() > 0 ? q.getPageNum() : 1;
+        int pageSize = q.getPageSize() != null && q.getPageSize() > 0 ? Math.min(q.getPageSize(), 100) : 10;
+        Page<CaseInfo> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<CaseInfo> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(CaseInfo::getIsDeleted, 0);
+        applyComprehensiveQueryRoleScope(wrapper, userId, roles);
+        applyCaseQueryCriteria(wrapper, q);
+        wrapper.orderByDesc(CaseInfo::getReportTime);
+        Page<CaseInfo> pageResult = caseInfoMapper.selectPage(page, wrapper);
+        applyTimerDisplayList(pageResult.getRecords());
+        for (CaseInfo row : pageResult.getRecords()) {
+            enrichCaseGeoDisplay(row);
+        }
         return pageResult;
     }
 
@@ -706,6 +730,7 @@ public class CaseServiceImpl implements CaseService {
     }
 
     private void applyDashboardOverdueCondition(LambdaQueryWrapper<CaseInfo> wrapper) {
+        wrapper.and(w -> w.isNull(CaseInfo::getHandleTimeoutExempt).or().eq(CaseInfo::getHandleTimeoutExempt, 0));
         wrapper.apply("EXISTS (SELECT 1 FROM case_timer_record t WHERE t.case_id = id "
                 + "AND t.timer_status IN ('running', 'paused') AND t.deadline_time < NOW())");
     }
@@ -1647,6 +1672,135 @@ public class CaseServiceImpl implements CaseService {
 
     private static boolean canViewAllPending(List<String> roles) {
         return roles != null && (roles.contains(ROLE_ADMIN) || roles.contains(ROLE_SUPERVISOR));
+    }
+
+    /** 综合查询全库角色：管理员、值班长、领导 */
+    private static boolean canQueryAllCases(List<String> roles) {
+        return roles != null && (roles.contains(ROLE_ADMIN) || roles.contains(ROLE_SUPERVISOR)
+                || roles.contains(ROLE_LEADER));
+    }
+
+    private static void assertCaseQueryRole(List<String> roles) {
+        if (roles == null) {
+            throw new BusinessException("无权使用综合查询");
+        }
+        if (canQueryAllCases(roles)) {
+            return;
+        }
+        if (roles.contains(ROLE_ACCEPTOR) || roles.contains(ROLE_DISPATCHER)) {
+            return;
+        }
+        throw new BusinessException("无权使用综合查询");
+    }
+
+    private void applyComprehensiveQueryRoleScope(LambdaQueryWrapper<CaseInfo> wrapper, Long userId,
+                                                  List<String> roles) {
+        if (userId == null || roles == null || canQueryAllCases(roles)) {
+            return;
+        }
+        if (roles.contains(ROLE_DISPATCHER)) {
+            applyDispatcherCaseScope(wrapper, userId);
+            return;
+        }
+        if (roles.contains(ROLE_ACCEPTOR)) {
+            applyAcceptorCaseScope(wrapper, userId);
+        }
+    }
+
+    private void applyCaseQueryCriteria(LambdaQueryWrapper<CaseInfo> wrapper, CaseQueryCriteria q) {
+        if (q.getCaseCode() != null && !q.getCaseCode().isBlank()) {
+            String code = q.getCaseCode().trim();
+            String match = q.getCaseCodeMatch() != null ? q.getCaseCodeMatch().trim() : "exact";
+            if ("prefix".equalsIgnoreCase(match)) {
+                wrapper.likeRight(CaseInfo::getCaseCode, code);
+            } else {
+                wrapper.eq(CaseInfo::getCaseCode, code);
+            }
+        }
+        applyDateFilter(wrapper, CaseInfo::getReportTime, q.getReportTime(), false);
+        applyDateFilter(wrapper, CaseInfo::getCloseTime, q.getCloseTime(), true);
+        if (q.getSourceTypes() != null && !q.getSourceTypes().isEmpty()) {
+            wrapper.in(CaseInfo::getSourceType, q.getSourceTypes());
+        }
+        if (q.getRespGridIds() != null && !q.getRespGridIds().isEmpty()) {
+            wrapper.in(CaseInfo::getRespGridId, q.getRespGridIds());
+        }
+        if (q.getCaseStatuses() != null && !q.getCaseStatuses().isEmpty()) {
+            wrapper.in(CaseInfo::getCaseStatus, q.getCaseStatuses());
+        }
+        if (q.getSmallIds() != null && !q.getSmallIds().isEmpty()) {
+            wrapper.in(CaseInfo::getSmallId, q.getSmallIds());
+        }
+        if (q.getHandleDeptId() != null) {
+            wrapper.eq(CaseInfo::getHandleDeptId, q.getHandleDeptId());
+        }
+        if (q.getReporterId() != null) {
+            wrapper.eq(CaseInfo::getReporterId, q.getReporterId());
+        }
+        if (q.getRegisterOperatorId() != null) {
+            wrapper.eq(CaseInfo::getRegisterOperatorId, q.getRegisterOperatorId());
+        }
+        if (q.getDispatchOperatorId() != null) {
+            wrapper.eq(CaseInfo::getDispatchOperatorId, q.getDispatchOperatorId());
+        }
+        if (q.getAddress() != null && !q.getAddress().isBlank()) {
+            String addr = q.getAddress().trim();
+            String match = q.getAddressMatch() != null ? q.getAddressMatch().trim() : "contains";
+            if ("eq".equalsIgnoreCase(match)) {
+                wrapper.eq(CaseInfo::getAddress, addr);
+            } else {
+                wrapper.like(CaseInfo::getAddress, addr);
+            }
+        }
+    }
+
+    private void applyDateFilter(LambdaQueryWrapper<CaseInfo> wrapper,
+                                 com.baomidou.mybatisplus.core.toolkit.support.SFunction<CaseInfo, LocalDateTime> column,
+                                 CaseDateFilter filter,
+                                 boolean requireNonNullForEq) {
+        if (filter == null || filter.getOp() == null || filter.getOp().isBlank()) {
+            return;
+        }
+        String op = filter.getOp().trim().toLowerCase(Locale.ROOT);
+        if ("between".equals(op)) {
+            LocalDateTime start = parseDateTimeParam(filter.getStart(), false);
+            LocalDateTime end = parseDateTimeParam(filter.getEnd(), true);
+            if (start != null) {
+                wrapper.ge(column, start);
+            }
+            if (end != null) {
+                wrapper.le(column, end);
+            }
+            return;
+        }
+        LocalDateTime dayStart = parseDateTimeParam(filter.getStart(), false);
+        LocalDateTime dayEnd = parseDateTimeParam(filter.getStart(), true);
+        switch (op) {
+            case "eq" -> {
+                if (dayStart == null) {
+                    return;
+                }
+                if (requireNonNullForEq) {
+                    wrapper.isNotNull(column);
+                }
+                wrapper.ge(column, dayStart);
+                if (dayEnd != null) {
+                    wrapper.le(column, dayEnd);
+                }
+            }
+            case "gt" -> {
+                if (dayEnd != null) {
+                    wrapper.gt(column, dayEnd);
+                }
+            }
+            case "lt" -> {
+                if (dayStart != null) {
+                    wrapper.lt(column, dayStart);
+                }
+            }
+            default -> {
+            }
+        }
     }
 
     /**

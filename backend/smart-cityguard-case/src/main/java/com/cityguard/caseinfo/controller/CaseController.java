@@ -11,6 +11,7 @@ import com.cityguard.caseinfo.dto.CaseAcceptorReturnDispatcherRequest;
 import com.cityguard.caseinfo.dto.CaseDeptReturnRequest;
 import com.cityguard.caseinfo.dto.CaseDispatcherForwardRequest;
 import com.cityguard.caseinfo.dto.CaseDispatcherReturnAcceptorRequest;
+import com.cityguard.caseinfo.dto.CaseQueryCriteria;
 import com.cityguard.caseinfo.dto.CaseRegisterRequest;
 import com.cityguard.caseinfo.dto.CaseReturnRequest;
 import com.cityguard.caseinfo.dto.CaseRevokeAssignRequest;
@@ -88,6 +89,15 @@ public class CaseController {
         Long uid = user != null ? user.getId() : null;
         List<String> roles = user != null ? user.getRoles() : null;
         return Result.success(caseService.getCaseList(pageNum, pageSize, params, uid, roles));
+    }
+
+    @Operation(summary = "综合查询（多条件分页）")
+    @PostMapping("/query")
+    public Result<Page<CaseInfo>> queryCases(@RequestBody CaseQueryCriteria criteria) {
+        LoginUser user = currentUser();
+        Long uid = user != null ? user.getId() : null;
+        List<String> roles = user != null ? user.getRoles() : null;
+        return Result.success(caseService.queryCases(criteria, uid, roles));
     }
 
     @Operation(summary = "采集员我的上报（分页）")

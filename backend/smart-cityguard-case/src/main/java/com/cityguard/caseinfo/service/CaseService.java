@@ -10,6 +10,7 @@ import com.cityguard.caseinfo.dto.CaseDeptConfirmRequest;
 import com.cityguard.caseinfo.dto.CaseDeptReturnRequest;
 import com.cityguard.caseinfo.dto.CaseDispatcherForwardRequest;
 import com.cityguard.caseinfo.dto.CaseDispatcherReturnAcceptorRequest;
+import com.cityguard.caseinfo.dto.CaseQueryCriteria;
 import com.cityguard.caseinfo.dto.CaseRegisterRequest;
 import com.cityguard.caseinfo.dto.CaseReturnRequest;
 import com.cityguard.caseinfo.dto.CaseRevokeAssignRequest;
@@ -35,6 +36,8 @@ public interface CaseService {
 
     Page<CaseInfo> getCaseList(Integer pageNum, Integer pageSize, Map<String, Object> params,
                                Long userId, java.util.List<String> roles);
+
+    Page<CaseInfo> queryCases(CaseQueryCriteria criteria, Long userId, List<String> roles);
 
     Page<CaseInfo> getPendingCases(String status, Integer pageNum, Integer pageSize, Long userId, java.util.List<String> roles);
 
