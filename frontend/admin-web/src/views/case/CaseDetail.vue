@@ -158,13 +158,45 @@
         >
           {{ caseInfo.currentHandlerName }}
         </el-descriptions-item>
-        <el-descriptions-item label="处置截止时间">{{ caseInfo.deadlineTime || '--' }}</el-descriptions-item>
-        <el-descriptions-item v-if="caseInfo.timeRemaining" label="处置时限">
-          {{ caseInfo.timeRemaining }}
-          <el-tag v-if="caseInfo.handleTimeoutExempt === 1" type="success" size="small" class="exempt-inline-tag">
-            不计超时
-          </el-tag>
-        </el-descriptions-item>
+        <template v-if="caseInfo.timerStages?.length">
+          <el-descriptions-item
+            v-for="stage in caseInfo.timerStages"
+            :key="stage.timerStage"
+            :label="stageDeadlineLabel(stage.timerStage)"
+          >
+            <span :class="{ overdue: stage.timedOut && stage.active }">
+              {{ stage.timeRemaining || '--' }}
+            </span>
+            <span v-if="stage.deadlineTime" class="timer-deadline-sub">
+              （{{ formatDateTime(stage.deadlineTime) }}）
+            </span>
+            <el-tag v-if="stage.active" type="warning" size="small" class="timer-active-tag">进行中</el-tag>
+            <el-tag
+              v-if="stage.timerStage === 'handle' && caseInfo.handleTimeoutExempt === 1"
+              type="success"
+              size="small"
+              class="exempt-inline-tag"
+            >
+              不计超时
+            </el-tag>
+          </el-descriptions-item>
+        </template>
+        <template v-else-if="caseInfo.stageDeadlineTime || caseInfo.timeRemaining">
+          <el-descriptions-item :label="stageDeadlineLabel(caseInfo.timerStage)">
+            {{ formatDateTime(rowStageDeadline(caseInfo)) || '--' }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="caseInfo.timeRemaining" :label="stageRemainingLabel(caseInfo.timerStage)">
+            <span :class="{ overdue: caseInfo.stageTimeout }">{{ caseInfo.timeRemaining }}</span>
+            <el-tag
+              v-if="caseInfo.timerStage === 'handle' && caseInfo.handleTimeoutExempt === 1"
+              type="success"
+              size="small"
+              class="exempt-inline-tag"
+            >
+              不计超时
+            </el-tag>
+          </el-descriptions-item>
+        </template>
         <el-descriptions-item
           v-if="caseInfo.handleStageTimedOut || caseInfo.handleTimeoutExempt === 1"
           label="处置超时"
@@ -519,6 +551,12 @@ import { fetchFilePreviewBlobUrl, revokeBlobUrls } from '@/utils/fileUrl'
 import { useUserStore } from '@/stores/user'
 import { RoleCode } from '@/utils/roleAccess'
 import { formatCaseStatusLabel, getCaseStatusTagType } from '@/utils/caseStatus'
+import { formatDateTime } from '@/utils/dateFormat'
+import {
+  stageDeadlineLabel,
+  stageRemainingLabel,
+  rowStageDeadline
+} from '@/utils/caseTimer'
 
 const route = useRoute()
 const router = useRouter()
@@ -1994,6 +2032,17 @@ async function submitProcess() {
 }
 
 .exempt-inline-tag {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.timer-deadline-sub {
+  margin-left: 4px;
+  color: #909399;
+  font-size: 13px;
+}
+
+.timer-active-tag {
   margin-left: 6px;
   vertical-align: middle;
 }

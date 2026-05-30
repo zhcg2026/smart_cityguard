@@ -12,6 +12,7 @@ import com.cityguard.caseinfo.support.CaseDynamicWhereBuilder;
 import com.cityguard.caseinfo.support.CaseReportMetricSql;
 import com.cityguard.common.exception.BusinessException;
 import com.cityguard.geo.service.RespGridService;
+import com.cityguard.timer.constant.TimerStageConstant;
 import com.cityguard.timer.model.CaseTimerDisplayInfo;
 import com.cityguard.timer.service.CaseTimerService;
 import lombok.RequiredArgsConstructor;
@@ -195,17 +196,22 @@ public class CaseReportServiceImpl implements CaseReportService {
             if (display == null) {
                 continue;
             }
+            c.setTimerStage(display.getTimerStage());
+            c.setTimerStageName(display.getStageName());
+            c.setStageDeadlineTime(display.getDeadlineTime());
             if (display.getTimeRemaining() != null) {
                 c.setTimeRemaining(display.getTimeRemaining());
             }
             if (display.getHandleRemainingSeconds() != null) {
                 c.setHandleRemainingSeconds(display.getHandleRemainingSeconds());
             }
+            if (display.getStageTimeout() != null) {
+                c.setStageTimeout(display.getStageTimeout());
+            }
             if (display.getHandleTimeout() != null) {
                 c.setHandleTimeout(display.getHandleTimeout());
-            }
-            if (c.getDeadlineTime() == null && display.getDeadlineTime() != null) {
-                c.setDeadlineTime(display.getDeadlineTime());
+            } else if (!TimerStageConstant.HANDLE.equals(display.getTimerStage())) {
+                c.setHandleTimeout(null);
             }
         }
     }

@@ -54,17 +54,22 @@
           label="处置人员"
           width="100"
         />
+        <el-table-column prop="timerStageName" label="计时阶段" width="88">
+          <template #default="{ row }">
+            {{ row.timerStageName || '--' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="timeRemaining" label="剩余时限" width="110">
           <template #default="{ row }">
-            <span :class="{ overdue: row.handleTimeout }">
+            <span :class="{ overdue: isRowStageOverdue(row) }">
               {{ row.timeRemaining || '--' }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="截止时间" width="170">
+        <el-table-column label="阶段截止" width="170">
           <template #default="{ row }">
-            <span :class="{ overdue: row.handleTimeout }">
-              {{ formatDateTime(row.deadlineTime) }}
+            <span :class="{ overdue: isRowStageOverdue(row) }">
+              {{ formatDateTime(rowStageDeadline(row)) }}
             </span>
           </template>
         </el-table-column>
@@ -104,6 +109,7 @@ import { useUserStore } from '@/stores/user'
 import { defaultPendingTabForRoles, RoleCode } from '@/utils/roleAccess'
 import { formatDateTime } from '@/utils/dateFormat'
 import { formatCaseStatusLabel, getCaseStatusTagType } from '@/utils/caseStatus'
+import { isRowStageOverdue, rowStageDeadline } from '@/utils/caseTimer'
 
 const route = useRoute()
 const router = useRouter()

@@ -4,6 +4,43 @@
 
 ---
 
+## 2026-05-30 工作小结（阶段计时展示 + 部门消息权限）
+
+### 当日摘要
+
+1. **阶段计时展示修正**：待立案/待派遣案件不再误标为「处置截止」；列表增加 **计时阶段** + **阶段截止**；详情按 **受理 / 派遣 / 处置** 分行展示各阶段截止与剩余时限（`timerStages`、`stageDeadlineTime`）。
+2. **根因说明**：上报即启动 **受理 15 分钟** 计时（`onCaseReported`），旧逻辑把当前阶段截止统一映射到 `deadlineTime` 且前端固定文案「处置截止时间」，造成歧义（例：`YC202605260001` 待立案却有处置截止）。
+3. **部门消息铃铛**：`RoleGroups.MESSAGE` 补 **DEPT**，处置部门点击右上角铃铛可进 `/message/list`，不再跳转无权限页。
+4. **环境**：四端 8080/3000/3003/9000 已重启；改 **timer/case** 后须 `mvn install` 再重启 8080。
+5. **移动端打包（讨论）**：采集端仍为 Vite H5；Capacitor 打 Android 调试包可行（需 API 地址 + CORS），与 `npm run dev` 电脑联调可并行；用户有 Android Studio 环境，尚未落地壳工程。
+
+| 层 | 内容 |
+|----|------|
+| **后端·计时** | `CaseTimerStageDisplay`、`buildCaseTimerStages`；`CaseTimerDisplayInfo.timerStage/stageName/stageTimeout`；`CaseInfo.stageDeadlineTime`、`timerStages`；不再用受理/派遣计时覆盖 `case_info.deadline_time` |
+| **后端·工作台** | 待办排序/展示用 `effectiveStageDeadline` + `timerStageName` |
+| **前端·管理端** | `caseTimer.js`；`CaseDetail`/`CaseList`/`CasePending`/`dashboard` 阶段文案 |
+| **前端·采集端** | `handle/index.vue` 展示阶段名 + 阶段截止 |
+| **前端·权限** | `roleAccess.js`：`MESSAGE` 含 `DEPT` |
+
+### 验证建议
+
+| 项 | 要点 |
+|----|------|
+| 待立案案件 | 详情见「受理截止时间」；列表计时阶段为「受理」 |
+| 待派遣 | 计时阶段为「派遣」 |
+| 已派遣 | 处置阶段截止与 `case_info.deadline_time` 一致 |
+| DEPT 账号 | 铃铛 → 消息列表可访问 |
+
+### 明天优先（接续）
+
+1. 阶段计时全链路抽测（立案/派遣/处置各转一次状态）。
+2. 可选：Capacitor Android 调试包（`VITE_API_BASE_URL` + 后端 CORS）。
+3. P1 联调验收（综合查询/考核统计/申诉）若尚未全测，继续按 2026-05-28 清单打勾。
+
+**本地联调**：8080 / 3000 / 3003 / 9000；改 **timer/case** → `mvn clean install -pl smart-cityguard-timer,smart-cityguard-case -am -DskipTests` → 重启 8080。
+
+---
+
 ## 2026-05-28 工作小结（综合查询 + 考核统计 + 处置超时申诉 + 工作台优化）
 
 ### 当日摘要

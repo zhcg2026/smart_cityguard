@@ -17,6 +17,9 @@ public class CaseDashboardTodoItemDto {
     /** 展示用状态文案 */
     private String status;
 
+    /** 当前计时阶段中文名（受理/派遣/处置） */
+    private String timerStageName;
+
     private LocalDateTime deadline;
 
     /** 任务类型：verify | check（type=task 时） */

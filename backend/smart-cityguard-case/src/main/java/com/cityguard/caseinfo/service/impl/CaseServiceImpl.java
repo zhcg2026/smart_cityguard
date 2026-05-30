@@ -43,6 +43,7 @@ import com.cityguard.task.entity.VerifyTask;
 import com.cityguard.task.mapper.CheckTaskMapper;
 import com.cityguard.task.mapper.VerifyTaskMapper;
 import com.cityguard.task.service.TaskService;
+import com.cityguard.timer.constant.TimerStageConstant;
 import com.cityguard.timer.model.CaseTimerDisplayInfo;
 import com.cityguard.timer.service.CaseTimerService;
 import lombok.RequiredArgsConstructor;
@@ -309,6 +310,7 @@ public class CaseServiceImpl implements CaseService {
         caseInfo.setPendingCheckTask(taskService.hasPendingCheckTask(id));
         caseInfo.setPendingVerifyTask(taskService.hasPendingVerifyTask(id));
         applyTimerDisplay(caseInfo);
+        caseInfo.setTimerStages(caseTimerService.buildCaseTimerStages(caseInfo.getId()));
         caseAdjustmentService.enrichCaseDetail(caseInfo);
         return caseInfo;
     }
@@ -318,25 +320,24 @@ public class CaseServiceImpl implements CaseService {
         if (display == null) {
             return;
         }
+        caseInfo.setTimerStage(display.getTimerStage());
+        caseInfo.setTimerStageName(display.getStageName());
+        caseInfo.setStageDeadlineTime(display.getDeadlineTime());
         if (display.getTimeRemaining() != null) {
             caseInfo.setTimeRemaining(display.getTimeRemaining());
         }
         if (display.getHandleRemainingSeconds() != null) {
             caseInfo.setHandleRemainingSeconds(display.getHandleRemainingSeconds());
         }
+        if (display.getStageTimeout() != null) {
+            caseInfo.setStageTimeout(display.getStageTimeout());
+        }
         if (display.getHandleTimeout() != null) {
             caseInfo.setHandleTimeout(display.getHandleTimeout());
+        } else if (!TimerStageConstant.HANDLE.equals(display.getTimerStage())) {
+            caseInfo.setHandleTimeout(null);
         }
         caseInfo.setHandleStageTimedOut(caseTimerService.wasHandleStageTimedOut(caseInfo.getId()));
-        if (caseInfo.getDeadlineTime() == null && display.getDeadlineTime() != null) {
-            caseInfo.setDeadlineTime(display.getDeadlineTime());
-        }
-        if (caseInfo.getTimeLimitType() == null && display.getTimeLimitType() != null) {
-            caseInfo.setTimeLimitType(display.getTimeLimitType());
-        }
-        if (caseInfo.getTimeLimitValue() == null && display.getTimeLimitValue() != null) {
-            caseInfo.setTimeLimitValue(display.getTimeLimitValue());
-        }
     }
 
     private void applyTimerDisplayList(List<CaseInfo> records) {
@@ -669,8 +670,8 @@ public class CaseServiceImpl implements CaseService {
     }
 
     private int compareDashboardTodoCases(CaseInfo a, CaseInfo b) {
-        LocalDateTime da = a.getDeadlineTime();
-        LocalDateTime db = b.getDeadlineTime();
+        LocalDateTime da = effectiveStageDeadline(a);
+        LocalDateTime db = effectiveStageDeadline(b);
         if (da != null && db != null) {
             int cmp = da.compareTo(db);
             if (cmp != 0) {
@@ -703,8 +704,16 @@ public class CaseServiceImpl implements CaseService {
             item.setTitle(code);
         }
         item.setStatus(resolveTodoStatusLabel(c));
-        item.setDeadline(c.getDeadlineTime());
+        item.setTimerStageName(c.getTimerStageName());
+        item.setDeadline(effectiveStageDeadline(c));
         return item;
+    }
+
+    private LocalDateTime effectiveStageDeadline(CaseInfo c) {
+        if (c.getStageDeadlineTime() != null) {
+            return c.getStageDeadlineTime();
+        }
+        return c.getDeadlineTime();
     }
 
     private String resolveTodoStatusLabel(CaseInfo c) {

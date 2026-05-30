@@ -21,8 +21,8 @@
             <van-tag type="warning">处置中</van-tag>
           </template>
           <template #value>
-            <span v-if="item.deadlineTime" :class="{ overdue: isOverdue(item) }">
-              {{ formatDeadline(item.deadlineTime) }}
+            <span v-if="displayDeadline(item)" :class="{ overdue: isOverdue(item) }">
+              {{ deadlinePrefix(item) }}{{ formatDeadline(displayDeadline(item)) }}
             </span>
           </template>
         </van-cell>
@@ -52,10 +52,21 @@ function caseCellLabel(item) {
   return parts.join(' · ') || '—'
 }
 
+function displayDeadline(item) {
+  return item.stageDeadlineTime || item.deadlineTime || ''
+}
+
+function deadlinePrefix(item) {
+  if (item.timerStageName) return `${item.timerStageName} `
+  return ''
+}
+
 function isOverdue(item) {
+  if (item.stageTimeout != null) return item.stageTimeout
   if (item.handleTimeout) return true
-  if (!item.deadlineTime) return false
-  return new Date(item.deadlineTime).getTime() < Date.now()
+  const t = displayDeadline(item)
+  if (!t) return false
+  return new Date(t).getTime() < Date.now()
 }
 
 function formatDeadline(t) {

@@ -14,6 +14,7 @@ import com.cityguard.timer.mapper.CaseTimerRecordMapper;
 import com.cityguard.timer.mapper.HolidayConfigMapper;
 import com.cityguard.timer.mapper.WorkTimeConfigMapper;
 import com.cityguard.timer.model.CaseTimerDisplayInfo;
+import com.cityguard.timer.model.CaseTimerStageDisplay;
 import com.cityguard.timer.model.ResolvedTimeLimit;
 import com.cityguard.timer.model.TimerContext;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -189,29 +191,33 @@ public class CaseTimerService {
             return null;
         }
         CaseTimerDisplayInfo info = new CaseTimerDisplayInfo();
+        info.setTimerStage(record.getTimerStage());
+        info.setStageName(record.getStageName());
         info.setTimeLimitType(record.getTimeLimitType());
         info.setTimeLimitValue(record.getTimeLimitValue());
         info.setDeadlineTime(record.getDeadlineTime());
-
-        LocalDateTime now = LocalDateTime.now();
-        if (TimerStatusConstant.RUNNING.equals(record.getTimerStatus())
-                || TimerStatusConstant.PAUSED.equals(record.getTimerStatus())) {
-            long remainSec = Duration.between(now, record.getDeadlineTime()).getSeconds();
-            info.setHandleRemainingSeconds(remainSec);
-            info.setTimeRemaining(formatRemaining(remainSec));
-            info.setHandleTimeout(remainSec < 0);
-        } else if (record.getActualFinishTime() != null) {
-            boolean wasTimeout = record.getIsTimeout() != null && record.getIsTimeout() == 1;
-            boolean exempt = isHandleTimeoutExempt(caseId);
-            if (exempt && wasTimeout) {
-                info.setHandleTimeout(false);
-                info.setTimeRemaining("曾超时（申诉通过，不计入考核）");
-            } else {
-                info.setHandleTimeout(wasTimeout);
-                info.setTimeRemaining(wasTimeout ? "已超时" : "按时完成");
-            }
-        }
+        fillRunningOrFinishedDisplay(caseId, record, info);
         return info;
+    }
+
+    /** 详情：受理 / 派遣 / 处置各阶段计时（按阶段顺序，仅有记录的才返回） */
+    public List<CaseTimerStageDisplay> buildCaseTimerStages(Long caseId) {
+        if (caseId == null) {
+            return List.of();
+        }
+        List<CaseTimerStageDisplay> list = new ArrayList<>(3);
+        for (String stage : new String[]{
+                TimerStageConstant.ACCEPT,
+                TimerStageConstant.DISPATCH,
+                TimerStageConstant.HANDLE
+        }) {
+            CaseTimerRecord record = caseTimerRecordMapper.selectLatestByCaseAndStage(caseId, stage);
+            if (record == null) {
+                continue;
+            }
+            list.add(toStageDisplay(caseId, record));
+        }
+        return list;
     }
 
     public boolean wasHandleStageTimedOut(Long caseId) {
@@ -244,6 +250,67 @@ public class CaseTimerService {
             }
         }
         return null;
+    }
+
+    private void fillRunningOrFinishedDisplay(Long caseId, CaseTimerRecord record, CaseTimerDisplayInfo info) {
+        LocalDateTime now = LocalDateTime.now();
+        if (TimerStatusConstant.RUNNING.equals(record.getTimerStatus())
+                || TimerStatusConstant.PAUSED.equals(record.getTimerStatus())) {
+            long remainSec = Duration.between(now, record.getDeadlineTime()).getSeconds();
+            info.setHandleRemainingSeconds(remainSec);
+            info.setTimeRemaining(formatRemaining(remainSec));
+            boolean overdue = remainSec < 0;
+            info.setStageTimeout(overdue);
+            if (TimerStageConstant.HANDLE.equals(record.getTimerStage())) {
+                info.setHandleTimeout(overdue);
+            }
+        } else if (record.getActualFinishTime() != null) {
+            boolean wasTimeout = record.getIsTimeout() != null && record.getIsTimeout() == 1;
+            boolean exempt = TimerStageConstant.HANDLE.equals(record.getTimerStage()) && isHandleTimeoutExempt(caseId);
+            if (exempt && wasTimeout) {
+                info.setStageTimeout(false);
+                info.setHandleTimeout(false);
+                info.setTimeRemaining("曾超时（申诉通过，不计入考核）");
+            } else {
+                info.setStageTimeout(wasTimeout);
+                if (TimerStageConstant.HANDLE.equals(record.getTimerStage())) {
+                    info.setHandleTimeout(wasTimeout);
+                }
+                info.setTimeRemaining(wasTimeout ? "已超时" : "按时完成");
+            }
+        }
+    }
+
+    private CaseTimerStageDisplay toStageDisplay(Long caseId, CaseTimerRecord record) {
+        CaseTimerStageDisplay item = new CaseTimerStageDisplay();
+        item.setTimerStage(record.getTimerStage());
+        item.setStageName(record.getStageName());
+        item.setStartTime(record.getStartTime());
+        item.setDeadlineTime(record.getDeadlineTime());
+        item.setTimerStatus(record.getTimerStatus());
+        item.setActive(TimerStatusConstant.RUNNING.equals(record.getTimerStatus())
+                || TimerStatusConstant.PAUSED.equals(record.getTimerStatus()));
+
+        LocalDateTime now = LocalDateTime.now();
+        if (Boolean.TRUE.equals(item.getActive())) {
+            long remainSec = Duration.between(now, record.getDeadlineTime()).getSeconds();
+            item.setTimeRemaining(formatRemaining(remainSec));
+            item.setTimedOut(remainSec < 0);
+        } else if (record.getActualFinishTime() != null) {
+            boolean wasTimeout = record.getIsTimeout() != null && record.getIsTimeout() == 1;
+            boolean exempt = TimerStageConstant.HANDLE.equals(record.getTimerStage()) && isHandleTimeoutExempt(caseId);
+            if (exempt && wasTimeout) {
+                item.setTimedOut(false);
+                item.setTimeRemaining("曾超时（申诉通过，不计入考核）");
+            } else {
+                item.setTimedOut(wasTimeout);
+                item.setTimeRemaining(wasTimeout ? "已超时" : "按时完成");
+            }
+        } else {
+            item.setTimeRemaining("--");
+            item.setTimedOut(false);
+        }
+        return item;
     }
 
     private void startStageTimer(Long caseId, String caseCode, String stage, String stageName,

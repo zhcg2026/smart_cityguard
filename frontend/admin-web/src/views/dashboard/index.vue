@@ -115,8 +115,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="截止时间" width="170">
+        <el-table-column label="阶段截止" width="170">
           <template #default="{ row }">
+            <span v-if="row.timerStageName" class="todo-stage-name">{{ row.timerStageName }} </span>
             {{ formatDateTime(row.deadline) }}
           </template>
         </el-table-column>

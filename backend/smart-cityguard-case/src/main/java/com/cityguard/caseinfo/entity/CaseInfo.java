@@ -1,8 +1,10 @@
 package com.cityguard.caseinfo.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.cityguard.timer.model.CaseTimerStageDisplay;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @TableName("case_info")
@@ -143,17 +145,37 @@ public class CaseInfo {
     @TableField(exist = false)
     private Boolean pendingVerifyTask;
 
-    /** 列表/详情：剩余时限文案（非表字段） */
+    /** 列表：当前展示计时阶段 accept/dispatch/handle（非表字段） */
+    @TableField(exist = false)
+    private String timerStage;
+
+    /** 列表：当前展示计时阶段中文名（非表字段） */
+    @TableField(exist = false)
+    private String timerStageName;
+
+    /** 列表：当前阶段截止时间（非表字段，来自 case_timer_record） */
+    @TableField(exist = false)
+    private LocalDateTime stageDeadlineTime;
+
+    /** 列表/详情：当前阶段剩余时限文案（非表字段） */
     @TableField(exist = false)
     private String timeRemaining;
+
+    /** 列表：当前阶段是否超时（非表字段） */
+    @TableField(exist = false)
+    private Boolean stageTimeout;
 
     /** 处置阶段剩余秒数（非表字段） */
     @TableField(exist = false)
     private Long handleRemainingSeconds;
 
-    /** 处置是否已超时（非表字段） */
+    /** 处置是否已超时（非表字段，仅处置阶段计时适用） */
     @TableField(exist = false)
     private Boolean handleTimeout;
+
+    /** 详情：各阶段计时明细（非表字段） */
+    @TableField(exist = false)
+    private List<CaseTimerStageDisplay> timerStages;
 
     /** 处置阶段计时是否曾超时（非表字段，含申诉通过后仍 true） */
     @TableField(exist = false)

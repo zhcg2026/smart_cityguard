@@ -78,6 +78,7 @@ export const RoleGroups = {
     RoleCode.ACCEPTOR,
     RoleCode.DISPATCHER,
     RoleCode.HANDLER,
+    RoleCode.DEPT,
     RoleCode.SUPERVISOR,
     RoleCode.EVALUATOR,
     RoleCode.ADMIN
