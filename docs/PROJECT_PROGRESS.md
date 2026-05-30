@@ -13,6 +13,7 @@
 3. **部门消息铃铛**：`RoleGroups.MESSAGE` 补 **DEPT**，处置部门点击右上角铃铛可进 `/message/list`，不再跳转无权限页。
 4. **环境**：四端 8080/3000/3003/9000 已重启；改 **timer/case** 后须 `mvn install` 再重启 8080。
 5. **移动端打包（讨论）**：采集端仍为 Vite H5；Capacitor 打 Android 调试包可行（需 API 地址 + CORS），与 `npm run dev` 电脑联调可并行；用户有 Android Studio 环境，尚未落地壳工程。
+6. **GitHub**：已推 `master`（`a331da3`）。
 
 | 层 | 内容 |
 |----|------|
