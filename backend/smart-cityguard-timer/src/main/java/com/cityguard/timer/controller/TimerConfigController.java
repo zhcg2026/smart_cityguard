@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "时限配置", description = "工作时段、节假日")
+@Tag(name = "计时规则", description = "工作时段、节假日")
 @RestController
 @RequestMapping("/config")
 @RequiredArgsConstructor

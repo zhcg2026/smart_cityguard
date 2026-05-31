@@ -16,12 +16,12 @@
         default-expand-all
         :expand-on-click-node="false"
       >
-        <template #default="{ node, data }">
+        <template #default="{ data }">
           <div class="tree-node">
-            <span>
-              {{ data.deptName }}
+            <span class="tree-label">
+              <span class="dept-name">{{ data.deptName }}</span>
               <span v-if="data.deptLevel >= 1" class="login-tag">
-                （{{ data.loginUsername ? `登录: ${data.loginUsername}` : '未配置登录账号' }}）
+                {{ data.loginUsername ? `登录: ${data.loginUsername}` : '未配置登录账号' }}
               </span>
             </span>
             <span class="tree-actions">
@@ -256,16 +256,78 @@ async function handleDelete(data) {
 <style lang="scss" scoped>
 .dept-manage {
   .tree-card {
-    .header-with-action { display: flex; justify-content: space-between; align-items: center; }
+    .header-with-action {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    :deep(.el-tree) {
+      --el-tree-node-content-height: auto;
+
+      .el-tree-node__content {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        min-height: 42px;
+        height: auto;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+
+        &:hover {
+          background-color: var(--el-fill-color-light);
+        }
+      }
+
+      .el-tree-node__expand-icon {
+        padding: 6px;
+        flex-shrink: 0;
+      }
+    }
+
     .tree-node {
       flex: 1;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 12px;
+      min-width: 0;
+      width: 100%;
       font-size: 14px;
-      padding-right: 8px;
-      .tree-actions { margin-left: 10px; }
-      .login-tag { color: #909399; font-size: 12px; margin-left: 4px; }
+      line-height: 1.5;
+
+      .tree-label {
+        flex: 1;
+        min-width: 0;
+        word-break: break-word;
+      }
+
+      .dept-name {
+        font-weight: 500;
+        color: var(--el-text-color-primary);
+      }
+
+      .login-tag {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 0 6px;
+        font-size: 12px;
+        color: var(--el-text-color-secondary);
+        background: var(--el-fill-color);
+        border-radius: 3px;
+        line-height: 20px;
+      }
+
+      .tree-actions {
+        flex-shrink: 0;
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 2px 6px;
+        margin-left: 12px;
+      }
     }
   }
 }

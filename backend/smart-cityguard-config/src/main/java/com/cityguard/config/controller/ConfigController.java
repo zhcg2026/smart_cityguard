@@ -142,14 +142,18 @@ public class ConfigController {
         return Result.success(configService.listTimeLimitRules());
     }
 
-    @Operation(summary = "大类下小类时限一览（含标准默认与覆盖）")
+    /** @deprecated 小类覆盖已停用，处置时限以立案条件为准；接口保留兼容 */
+    @Deprecated
+    @Operation(summary = "大类下小类时限一览（已停用小类覆盖）", deprecated = true)
     @GetMapping("/timelimit/small/list")
     public Result<List<SmallTimeLimitRowVO>> listSmallTimeLimits(
             @Parameter(description = "大类ID") @RequestParam Long bigId) {
         return Result.success(configService.listSmallTimeLimits(bigId));
     }
 
-    @Operation(summary = "保存小类时限覆盖")
+    /** @deprecated 小类覆盖已停用，请在案件分类-立案条件中维护处置时限 */
+    @Deprecated
+    @Operation(summary = "保存小类时限覆盖（已停用）", deprecated = true)
     @PostMapping("/timelimit/override")
     @PreAuthorize("hasRole('ADMIN')")
     public Result<CategoryTimeLimitOverride> saveTimeLimitOverride(
@@ -157,7 +161,9 @@ public class ConfigController {
         return Result.success(configService.saveTimeLimitOverride(request));
     }
 
-    @Operation(summary = "删除小类时限覆盖")
+    /** @deprecated 小类覆盖已停用 */
+    @Deprecated
+    @Operation(summary = "删除小类时限覆盖（已停用）", deprecated = true)
     @DeleteMapping("/timelimit/override/{id:\\d+}")
     @PreAuthorize("hasRole('ADMIN')")
     public Result<Void> deleteTimeLimitOverride(@PathVariable Long id) {

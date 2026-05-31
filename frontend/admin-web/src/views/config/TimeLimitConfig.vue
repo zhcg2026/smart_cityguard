@@ -1,10 +1,17 @@
 <template>
   <div class="page-container">
     <el-card>
-      <template #header><span>时限配置</span></template>
+      <template #header><span>计时规则</span></template>
+
+      <el-alert
+        type="info"
+        show-icon
+        :closable="false"
+        class="mb-4"
+        title="本页配置计时引擎：时限类型定义、工作时段与节假日。案件处置截止时限请在「案件分类 → 立案条件」中按条维护（与立结案标准一致）。"
+      />
 
       <el-tabs v-model="activeTab">
-        <!-- 全局规则 -->
         <el-tab-pane label="全局规则" name="rules">
           <el-alert
             type="info"
@@ -33,7 +40,6 @@
           </el-table>
         </el-tab-pane>
 
-        <!-- 工作时段 -->
         <el-tab-pane label="工作时段" name="worktime">
           <el-alert
             type="info"
@@ -100,7 +106,6 @@
           <el-empty v-else description="暂无工作时段配置" />
         </el-tab-pane>
 
-        <!-- 节假日 -->
         <el-tab-pane label="节假日" name="holiday">
           <div class="toolbar mb-4">
             <el-date-picker
@@ -131,100 +136,11 @@
             </el-table-column>
           </el-table>
         </el-tab-pane>
-
-        <!-- 小类覆盖 -->
-        <el-tab-pane label="小类覆盖" name="override">
-          <el-alert
-            type="warning"
-            show-icon
-            :closable="false"
-            class="mb-4"
-            title="覆盖优先级高于立案标准中的处置时限；仅影响新派遣案件的计时，已在途案件不变。"
-          />
-          <div class="toolbar mb-4">
-            <el-select v-model="filterCategoryType" placeholder="类型" style="width: 120px" @change="onCategoryTypeChange">
-              <el-option label="部件" :value="1" />
-              <el-option label="事件" :value="2" />
-            </el-select>
-            <el-select
-              v-model="filterBigId"
-              placeholder="选择大类"
-              style="width: 220px; margin-left: 12px"
-              filterable
-              @change="loadSmallLimits"
-            >
-              <el-option
-                v-for="item in bigList"
-                :key="item.id"
-                :label="`${item.bigCode} ${item.bigName}`"
-                :value="item.id"
-              />
-            </el-select>
-          </div>
-          <el-table v-loading="smallLoading" :data="smallLimitList" border stripe>
-            <el-table-column prop="smallCode" label="小类编码" width="100" />
-            <el-table-column prop="smallName" label="小类名称" min-width="140" />
-            <el-table-column label="标准时限" min-width="130">
-              <template #default="{ row }">
-                {{ formatLimit(row.defaultTimeLimitType, row.defaultTimeLimitValue) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="覆盖时限" min-width="130">
-              <template #default="{ row }">
-                <span v-if="row.overridden" class="override-text">
-                  {{ formatLimit(row.overrideTimeLimitType, row.overrideTimeLimitValue) }}
-                </span>
-                <span v-else class="muted">—</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="实际生效" min-width="130">
-              <template #default="{ row }">
-                <strong>{{ formatLimit(row.effectiveTimeLimitType, row.effectiveTimeLimitValue) }}</strong>
-              </template>
-            </el-table-column>
-            <el-table-column v-if="isAdmin" label="操作" width="160" fixed="right">
-              <template #default="{ row }">
-                <el-button type="primary" link @click="openOverrideDialog(row)">
-                  {{ row.overridden ? '修改' : '设置覆盖' }}
-                </el-button>
-                <el-button v-if="row.overridden" type="danger" link @click="removeOverride(row)">清除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
       </el-tabs>
     </el-card>
 
-    <!-- 小类覆盖对话框 -->
-    <el-dialog v-model="overrideVisible" :title="overrideForm.smallName" width="440px">
-      <el-form ref="overrideFormRef" :model="overrideForm" :rules="overrideRules" label-width="90px">
-        <el-form-item label="时限类型" prop="timeLimitType">
-          <el-select v-model="overrideForm.timeLimitType" placeholder="请选择" style="width: 100%">
-            <el-option
-              v-for="item in TIME_LIMIT_TYPE_OPTIONS"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="时限数值" prop="timeLimitValue">
-          <el-input-number v-model="overrideForm.timeLimitValue" :min="1" :max="9999" style="width: 100%" />
-          <div class="hint">{{ valueUnitHint(overrideForm.timeLimitType) }}</div>
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="overrideForm.remark" type="textarea" :rows="2" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="overrideVisible = false">取消</el-button>
-        <el-button type="primary" :loading="overrideSaving" @click="submitOverride">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 节假日对话框 -->
     <el-dialog v-model="holidayVisible" :title="holidayForm.id ? '编辑节假日' : '新增节假日'" width="440px">
-      <el-form ref="holidayFormRef" :model="holidayForm" :rules="holidayRules" label-width="90px">
+      <el-form ref="holidayFormRef" :model="holidayForm" :rules="holidayRules" label-width="80px">
         <el-form-item label="日期" prop="holidayDate">
           <el-date-picker
             v-model="holidayForm.holidayDate"
@@ -261,26 +177,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { RoleCode } from '@/utils/roleAccess'
 import {
-  getCategoryBigList,
   getTimeLimitRules,
-  getSmallTimeLimits,
-  saveTimeLimitOverride,
-  deleteTimeLimitOverride,
   getWorkTimeConfig,
   updateWorkTimeConfig,
   getHolidayConfig,
   saveHoliday,
   deleteHoliday
 } from '@/api/config'
-
-const TIME_LIMIT_TYPE_OPTIONS = [
-  { value: 'urgent_hour', label: '紧急工作时' },
-  { value: 'work_hour', label: '工作时' },
-  { value: 'work_day', label: '工作日' },
-  { value: 'natural_day', label: '自然日' }
-]
-
-const TYPE_NAME_MAP = Object.fromEntries(TIME_LIMIT_TYPE_OPTIONS.map((o) => [o.value, o.label]))
 
 const userStore = useUserStore()
 const isAdmin = computed(() => (userStore.roles || []).includes(RoleCode.ADMIN))
@@ -312,43 +215,9 @@ const holidayRules = {
   holidayType: [{ required: true, message: '请选择类型', trigger: 'change' }]
 }
 
-const filterCategoryType = ref(2)
-const filterBigId = ref(null)
-const bigList = ref([])
-const smallLoading = ref(false)
-const smallLimitList = ref([])
-
-const overrideVisible = ref(false)
-const overrideSaving = ref(false)
-const overrideFormRef = ref()
-const overrideForm = reactive({
-  id: null,
-  smallId: null,
-  smallName: '',
-  timeLimitType: 'work_hour',
-  timeLimitValue: 4,
-  remark: ''
-})
-const overrideRules = {
-  timeLimitType: [{ required: true, message: '请选择时限类型', trigger: 'change' }],
-  timeLimitValue: [{ required: true, message: '请填写时限数值', trigger: 'blur' }]
-}
-
 onMounted(async () => {
-  await Promise.all([loadRules(), loadWorkTime(), loadHolidays(), loadBigList()])
+  await Promise.all([loadRules(), loadWorkTime(), loadHolidays()])
 })
-
-function formatLimit(type, value) {
-  if (!type || value == null) return '—'
-  const name = TYPE_NAME_MAP[type] || type
-  const unit = type === 'work_day' || type === 'natural_day' ? '天' : '小时'
-  return `${value}${unit}（${name}）`
-}
-
-function valueUnitHint(type) {
-  if (type === 'work_day' || type === 'natural_day') return '单位：天'
-  return '单位：小时'
-}
 
 async function loadRules() {
   rulesLoading.value = true
@@ -447,85 +316,6 @@ async function removeHoliday(row) {
     console.error(e)
   }
 }
-
-async function loadBigList() {
-  try {
-    const res = await getCategoryBigList({ type: filterCategoryType.value })
-    bigList.value = res.data || []
-    if (bigList.value.length && !filterBigId.value) {
-      filterBigId.value = bigList.value[0].id
-      await loadSmallLimits()
-    }
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-async function onCategoryTypeChange() {
-  filterBigId.value = null
-  smallLimitList.value = []
-  await loadBigList()
-}
-
-async function loadSmallLimits() {
-  if (!filterBigId.value) {
-    smallLimitList.value = []
-    return
-  }
-  smallLoading.value = true
-  try {
-    const res = await getSmallTimeLimits(filterBigId.value)
-    smallLimitList.value = res.data || []
-  } catch (e) {
-    console.error(e)
-  } finally {
-    smallLoading.value = false
-  }
-}
-
-function openOverrideDialog(row) {
-  Object.assign(overrideForm, {
-    id: row.overrideId || null,
-    smallId: row.smallId,
-    smallName: row.smallName,
-    timeLimitType: row.overrideTimeLimitType || row.effectiveTimeLimitType || 'work_hour',
-    timeLimitValue: row.overrideTimeLimitValue || row.effectiveTimeLimitValue || 4,
-    remark: row.overrideRemark || ''
-  })
-  overrideVisible.value = true
-}
-
-async function submitOverride() {
-  await overrideFormRef.value?.validate()
-  overrideSaving.value = true
-  try {
-    await saveTimeLimitOverride({
-      id: overrideForm.id,
-      smallId: overrideForm.smallId,
-      timeLimitType: overrideForm.timeLimitType,
-      timeLimitValue: overrideForm.timeLimitValue,
-      remark: overrideForm.remark
-    })
-    ElMessage.success('覆盖已保存')
-    overrideVisible.value = false
-    await loadSmallLimits()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    overrideSaving.value = false
-  }
-}
-
-async function removeOverride(row) {
-  await ElMessageBox.confirm(`清除「${row.smallName}」的时限覆盖？`, '提示', { type: 'warning' })
-  try {
-    await deleteTimeLimitOverride(row.overrideId)
-    ElMessage.success('已清除覆盖')
-    await loadSmallLimits()
-  } catch (e) {
-    console.error(e)
-  }
-}
 </script>
 
 <style scoped>
@@ -548,16 +338,5 @@ async function removeOverride(row) {
 }
 .sep {
   color: var(--el-text-color-secondary);
-}
-.hint {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-.muted {
-  color: var(--el-text-color-secondary);
-}
-.override-text {
-  color: var(--el-color-warning);
 }
 </style>

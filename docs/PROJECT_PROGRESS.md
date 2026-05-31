@@ -4,6 +4,51 @@
 
 ---
 
+## 2026-05-30 工作小结（续：菜单/计时规则 + 规划讨论）
+
+### 当日摘要（代码变更）
+
+1. **内容发布独立菜单**：从「业务配置」子项拆出，侧栏一级 **内容发布**（`/content/publish`）；旧路径 `/config/announcement` 重定向；权限仍为 ADMIN/SUPERVISOR（`RoleGroups.CONFIG`）。
+2. **计时规则 / 隐去小类覆盖**：
+   - 菜单「时限配置」→ **「计时规则」**；`TimeLimitConfig.vue` 去掉「小类覆盖」Tab，页顶说明处置时限在 **案件分类 → 立案条件**。
+   - `CaseTimerService.resolveHandleTimeLimit`：**仅 `standardId`（立案条件）**，停用 `category_time_limit_override`。
+   - 小类覆盖 API 标 `@Deprecated`；`CategoryManage.vue` 说明已更新。
+3. **部门管理列表样式**：`DeptManage.vue` 树节点左右布局、登录标签样式优化。
+4. **DEPT 角色名乱码**：新增 `database/patch_fix_dept_role_name.sql`；`patch_dept_login.sql` 加注释指引。
+
+| 层 | 内容 |
+|----|------|
+| **前端·路由** | `router/index.js`：`/content` 一级菜单；`/config/announcement` → redirect |
+| **前端·配置** | `TimeLimitConfig.vue`、`CategoryManage.vue` |
+| **前端·系统** | `DeptManage.vue` 树样式 |
+| **后端·timer** | `CaseTimerService` 仅立案条件解析处置时限 |
+| **后端·config** | 小类覆盖接口 `@Deprecated` |
+| **库** | `patch_fix_dept_role_name.sql` |
+
+**改 timer/config 后**：`mvn clean install -pl smart-cityguard-timer,smart-cityguard-config -am -DskipTests` → 重启 8080。
+
+### 当日讨论纪要（接续用）
+
+| 话题 | 结论摘要 |
+|------|----------|
+| **待办事项是否等于工作完成** | 待办 = 按角色聚合的**案件待办队列**；清空 ≈ 本岗当前环节办完。不含：申诉、延期审批、任务台账、内容发布、领导查统计等；全系统结案 ≠ 待办为空。 |
+| **国产化适配** | 相对好适配（Java + Vue H5）；主战场是 **MySQL → 达梦/金仓**（DDL + 原生 SQL）；Redis/RabbitMQ 未硬依赖；地图已是高德，若招标要天地图需抽象一层。 |
+| **功能完善度 / 生产容量** | 主干 **可试运行**（~85% 案件流）；正式生产需验收 + 部署加固。单机 modest 配置粗估 **几十人同时在线、几百账号**；无压测，500+ 需 Redis/多实例/消息改推送。 |
+| **完善路线规划** | 阶段 0 验收收口 → 1 试运行部署 → 2 回退链/状态机/待办并入任务 → 3 报表/菜单权限 → 4 Capacitor/消息实时 → 5 信创/压测（详见会话规划，不重复展开）。 |
+| **手机端何时可测** | **现在即可**：采集端 H5（`:3003`）+ 手机浏览器 + 同 WiFi；需 `vite` 开 `host: true`（尚未改代码，明天可补）；高德 Key 配 `.env.local`。Capacitor 调试包约 1～2 周，不阻塞 H5 真机测。 |
+| **上线节奏** | 用户表示**不着急上线**，优先继续完善功能；手机测试与功能开发可并行，不必等功能全部做完。 |
+
+### 明天优先（接续）
+
+1. **阶段 0 验收**：按 2026-05-28 清单 + 阶段计时抽测（立案/派遣/处置各转一次）。
+2. **可选小改**：`collector-app/vite.config.js` 加 `host: true`，写一条手机 H5 联调说明（或入 `docs/startup-guide.md`）。
+3. **阶段 2 起步**：回退链第一批（派遣/部门回退，见 `docs/case-workflow-spec.md` §11 P0）。
+4. 改 **timer/config** 后确认已 `mvn install` 并重启 8080；管理端刷新看「内容发布」独立菜单与「计时规则」页。
+
+**本地联调**：8080 / 3000 / 3003 / 9000。
+
+---
+
 ## 2026-05-30 工作小结（阶段计时展示 + 部门消息权限）
 
 ### 当日摘要

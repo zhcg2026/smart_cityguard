@@ -105,6 +105,17 @@ Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-m
 
 ## 沟通纪要（接续用）
 
+**2026-05-30**
+
+- **阶段计时展示**：列表/详情按受理/派遣/处置分阶段截止；不再误标「处置截止」。
+- **DEPT 消息**：`RoleGroups.MESSAGE` 含 DEPT。
+- **内容发布**：独立一级菜单 **`/content/publish`**（旧 `/config/announcement` 重定向）；不再在业务配置下。
+- **计时规则**：菜单改名；去掉小类覆盖 Tab；处置时限仅 **立案条件**（`CaseTimerService`）；改 **timer/config** 须 `mvn install`。
+- **部门管理**：`DeptManage.vue` 树样式；DEPT 角色名乱码补丁 **`patch_fix_dept_role_name.sql`**。
+- **讨论**：待办≠全部工作；国产化主战场是国产库；主干可试运行；完善路线分阶段 0～5；**手机 H5 真机现在可测**（WiFi + `host: true` 待补）。
+- **节奏**：不着急上线，继续完善功能；明天阶段 0 验收 + 可选手机联调配置 + 回退链起步。
+- 详见 **`docs/PROJECT_PROGRESS.md` §2026-05-30**。
+
 **2026-05-28**
 
 - **P1 综合查询**：`POST /case/query` + `CaseQuery.vue`；菜单 **考核评价 → 综合查询**（`/evaluation/query`）。
@@ -118,7 +129,7 @@ Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-m
 **2026-05-25**
 
 - **工作台**：统计 `GET /case/dashboard/stats`；待办 `GET /case/dashboard/todos`。
-- **内容发布**：通告/今日提示可见性；管理页 `/config/announcement`；首页详情 + `/notice/*`。
+- **内容发布**：通告/今日提示可见性；管理页 **`/content/publish`**（原 `/config/announcement`）；首页详情 + `/notice/*`。
 - **案件分类 CRUD**：`/config/category/**/manage` + `CategoryManage.vue`；改 **config** 须 `mvn install` 否则新路径 404。
 - **延期/挂账（首版）**：DEPT 申请 → DISPATCHER 审批；`/case/adjustment/**`；库 **`patch_case_adjustment.sql`**；改 **case/timer** 须 `mvn install`。
 - **联调修复**：核查/核实附件与上传提示；待核查/我立案过滤；`caseStatus.js` 状态中文。

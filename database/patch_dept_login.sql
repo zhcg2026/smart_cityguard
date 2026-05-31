@@ -21,6 +21,8 @@ SELECT '部门账号', 'DEPT', '处置部门登录账号，负责接收派遣并
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE role_code = 'DEPT' AND deleted = 0);
 
+-- 名称乱码时另执行：database/patch_fix_dept_role_name.sql（须 --default-character-set=utf8mb4）
+
 -- 为已有二级处置部门（10/11/12）创建部门登录账号 dept_10 等，默认密码 admin123
 -- admin123 BCrypt: $2a$10$3b.WiFgvOKOT4D956hQbpeJjEyBZ6pVyBpE4lW0IlFl5CqaIavFPW
 

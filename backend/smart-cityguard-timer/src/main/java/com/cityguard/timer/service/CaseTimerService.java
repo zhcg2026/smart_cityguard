@@ -1,9 +1,7 @@
 package com.cityguard.timer.service;
 
 import com.cityguard.config.entity.CaseStandard;
-import com.cityguard.config.entity.CategoryTimeLimitOverride;
 import com.cityguard.config.mapper.CaseStandardMapper;
-import com.cityguard.config.mapper.CategoryTimeLimitOverrideMapper;
 import com.cityguard.timer.constant.TimerDefaults;
 import com.cityguard.timer.constant.TimerStageConstant;
 import com.cityguard.timer.constant.TimerStatusConstant;
@@ -39,7 +37,6 @@ public class CaseTimerService {
     private final WorkTimeConfigMapper workTimeConfigMapper;
     private final HolidayConfigMapper holidayConfigMapper;
     private final CaseStandardMapper caseStandardMapper;
-    private final CategoryTimeLimitOverrideMapper categoryTimeLimitOverrideMapper;
     private final JdbcTemplate jdbcTemplate;
 
     /** 上报进入待立案：启动受理计时（15分钟连续） */
@@ -89,14 +86,11 @@ public class CaseTimerService {
         return caseTimerRecordMapper.selectActiveByCaseAndStage(caseId, TimerStageConstant.HANDLE) != null;
     }
 
+    /**
+     * 处置时限：以立案条件（case_standard）为准；无 standardId 时默认 4 工作时。
+     * 小类覆盖表 category_time_limit_override 已停用，请在案件分类-立案条件中维护。
+     */
     public ResolvedTimeLimit resolveHandleTimeLimit(Long smallId, Long standardId) {
-        if (smallId != null) {
-            CategoryTimeLimitOverride override = categoryTimeLimitOverrideMapper.selectBySmallId(smallId);
-            if (override != null && override.getTimeLimitType() != null && override.getTimeLimitValue() != null) {
-                return new ResolvedTimeLimit(override.getTimeLimitType(), override.getTimeLimitValue(),
-                        DeadlineCalculator.isContinuous(override.getTimeLimitType()));
-            }
-        }
         if (standardId != null) {
             CaseStandard standard = caseStandardMapper.selectById(standardId);
             if (standard != null && standard.getHandleTimeType() != null && standard.getHandleTimeValue() != null) {

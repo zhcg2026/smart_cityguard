@@ -6,7 +6,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 小类处置时限覆盖（业务配置-时限配置中按小类调整）。
+ * 小类处置时限覆盖（已停用；处置时限以 case_standard 立案条件为准，表保留兼容）。
  */
 @Data
 @TableName("category_time_limit_override")

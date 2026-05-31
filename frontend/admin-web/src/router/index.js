@@ -365,13 +365,27 @@ const routes = [
         path: 'timelimit',
         name: 'TimeLimitConfig',
         component: () => import('@/views/config/TimeLimitConfig.vue'),
-        meta: { title: '时限配置' }
-      },
+        meta: { title: '计时规则' }
+      }
+    ]
+  },
+  {
+    path: '/config/announcement',
+    redirect: '/content/publish',
+    meta: { hidden: true }
+  },
+  // 内容发布（独立一级菜单）
+  {
+    path: '/content',
+    component: () => import('@/layouts/BasicLayout.vue'),
+    redirect: '/content/publish',
+    meta: { roles: RoleGroups.CONFIG },
+    children: [
       {
-        path: 'announcement',
+        path: 'publish',
         name: 'AnnouncementManage',
         component: () => import('@/views/config/AnnouncementManage.vue'),
-        meta: { title: '内容发布', roles: RoleGroups.CONFIG }
+        meta: { title: '内容发布', icon: 'Reading', roles: RoleGroups.CONFIG }
       }
     ]
   },
