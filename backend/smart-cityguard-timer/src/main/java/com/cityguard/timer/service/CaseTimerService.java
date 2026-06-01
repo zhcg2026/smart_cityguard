@@ -2,6 +2,7 @@ package com.cityguard.timer.service;
 
 import com.cityguard.config.entity.CaseStandard;
 import com.cityguard.config.mapper.CaseStandardMapper;
+import com.cityguard.config.util.CategoryCodeHelper;
 import com.cityguard.timer.constant.TimerDefaults;
 import com.cityguard.timer.constant.TimerStageConstant;
 import com.cityguard.timer.constant.TimerStatusConstant;
@@ -93,9 +94,9 @@ public class CaseTimerService {
     public ResolvedTimeLimit resolveHandleTimeLimit(Long smallId, Long standardId) {
         if (standardId != null) {
             CaseStandard standard = caseStandardMapper.selectById(standardId);
-            if (standard != null && standard.getHandleTimeType() != null && standard.getHandleTimeValue() != null) {
-                return new ResolvedTimeLimit(standard.getHandleTimeType(), standard.getHandleTimeValue(),
-                        DeadlineCalculator.isContinuous(standard.getHandleTimeType()));
+            ResolvedTimeLimit resolved = HandleTimeLimitNormalizer.fromCaseStandard(standard);
+            if (resolved != null) {
+                return resolved;
             }
         }
         return new ResolvedTimeLimit("work_hour", 4, false);
@@ -284,6 +285,11 @@ public class CaseTimerService {
         item.setTimerStatus(record.getTimerStatus());
         item.setActive(TimerStatusConstant.RUNNING.equals(record.getTimerStatus())
                 || TimerStatusConstant.PAUSED.equals(record.getTimerStatus()));
+        if (record.getTimeLimitType() != null) {
+            item.setContinuous(DeadlineCalculator.isContinuous(record.getTimeLimitType()));
+            item.setTimeLimitLabel(CategoryCodeHelper.formatHandleTimeLimitLabel(
+                    record.getTimeLimitType(), record.getTimeLimitValue()));
+        }
 
         LocalDateTime now = LocalDateTime.now();
         if (Boolean.TRUE.equals(item.getActive())) {
@@ -388,18 +394,29 @@ public class CaseTimerService {
 
     private static String formatRemaining(long remainSec) {
         if (remainSec < 0) {
-            long over = -remainSec;
-            if (over >= 3600) {
-                return "超时" + (over / 3600) + "小时";
-            }
-            return "超时" + (over / 60) + "分钟";
+            return "超时" + formatDuration(Math.abs(remainSec));
         }
         if (remainSec >= 86400) {
-            return "剩余" + (remainSec / 86400) + "天";
+            long days = remainSec / 86400;
+            long rest = remainSec % 86400;
+            if (rest > 0) {
+                return "剩余" + days + "天" + formatDuration(rest);
+            }
+            return "剩余" + days + "天";
         }
-        if (remainSec >= 3600) {
-            return "剩余" + (remainSec / 3600) + "小时";
+        return "剩余" + formatDuration(remainSec);
+    }
+
+    /** 剩余/已用时长：满 1 小时带分钟，避免 1 小时 55 分显示成「1 小时」 */
+    private static String formatDuration(long sec) {
+        long h = sec / 3600;
+        long m = (sec % 3600) / 60;
+        if (h > 0 && m > 0) {
+            return h + "小时" + m + "分";
         }
-        return "剩余" + Math.max(1, remainSec / 60) + "分钟";
+        if (h > 0) {
+            return h + "小时";
+        }
+        return Math.max(1, m) + "分钟";
     }
 }

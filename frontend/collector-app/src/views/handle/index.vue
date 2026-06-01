@@ -21,9 +21,10 @@
             <van-tag type="warning">处置中</van-tag>
           </template>
           <template #value>
-            <span v-if="displayDeadline(item)" :class="{ overdue: isOverdue(item) }">
-              {{ deadlinePrefix(item) }}{{ formatDeadline(displayDeadline(item)) }}
-            </span>
+            <div v-if="hasTimerInfo(item)" class="timer-value" :class="{ overdue: isOverdue(item) }">
+              <div class="timer-remain">{{ remainingText(item) }}</div>
+              <div class="timer-deadline">截止 {{ formatDeadline(displayDeadline(item)) }}</div>
+            </div>
           </template>
         </van-cell>
       </van-cell-group>
@@ -38,6 +39,7 @@ defineOptions({ name: 'HandleList' })
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getPendingCaseList } from '@/api/case'
+import { formatRemainingText, isRowStageOverdue, rowStageDeadline } from '@/utils/caseTimer'
 
 const router = useRouter()
 const caseList = ref([])
@@ -53,20 +55,19 @@ function caseCellLabel(item) {
 }
 
 function displayDeadline(item) {
-  return item.stageDeadlineTime || item.deadlineTime || ''
+  return rowStageDeadline(item)
 }
 
-function deadlinePrefix(item) {
-  if (item.timerStageName) return `${item.timerStageName} `
-  return ''
+function hasTimerInfo(item) {
+  return Boolean(displayDeadline(item) || item.timeRemaining)
+}
+
+function remainingText(item) {
+  return formatRemainingText(item)
 }
 
 function isOverdue(item) {
-  if (item.stageTimeout != null) return item.stageTimeout
-  if (item.handleTimeout) return true
-  const t = displayDeadline(item)
-  if (!t) return false
-  return new Date(t).getTime() < Date.now()
+  return isRowStageOverdue(item)
 }
 
 function formatDeadline(t) {
@@ -109,8 +110,27 @@ function goDetail(id) {
   padding-bottom: 60px;
 }
 
-.overdue {
-  color: #ee0a24;
+.timer-value {
+  text-align: right;
   font-size: 12px;
+  line-height: 1.4;
+  color: #323233;
+}
+
+.timer-value.overdue {
+  color: #ee0a24;
+}
+
+.timer-remain {
+  font-weight: 600;
+}
+
+.timer-deadline {
+  color: #969799;
+  font-size: 11px;
+}
+
+.timer-value.overdue .timer-deadline {
+  color: #ee0a24;
 }
 </style>

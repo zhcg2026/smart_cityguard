@@ -2,6 +2,25 @@
   <div class="handle-detail-page">
     <van-nav-bar title="案件处置" left-arrow @click-left="goBack" />
 
+    <van-notice-bar
+      v-if="handleTimer.show && caseInfo.caseStatus === 'handling'"
+      wrapable
+      :color="handleTimer.overdue ? '#ee0a24' : '#ed6a0c'"
+      :background="handleTimer.overdue ? '#fff1f0' : '#fff7e8'"
+      left-icon="clock-o"
+      :text="handleTimerBannerText"
+    />
+
+    <van-cell-group v-if="handleTimer.show" title="处置时限" inset>
+      <van-cell v-if="handleTimer.limitLabel" title="时限规则" :value="handleTimer.limitLabel" />
+      <van-cell title="截止时间" :value="handleTimer.deadlineText || '—'" />
+      <van-cell title="剩余时间">
+        <template #value>
+          <span :class="{ 'text-overdue': handleTimer.overdue }">{{ handleTimer.remainingText || '—' }}</span>
+        </template>
+      </van-cell>
+    </van-cell-group>
+
     <van-cell-group title="案件信息" inset>
       <van-cell title="案件编号" :value="caseInfo.caseCode" />
       <van-cell title="案件状态" :value="statusLabel" />
@@ -96,6 +115,7 @@ import { getCaseDetail, getCaseAttachments, handleCase, handlerReturnDept, uploa
 import { useUserStore } from '@/stores/user'
 import CaseLocationMap from '@/components/CaseLocationMap.vue'
 import { fetchFilePreviewBlobUrl, revokeBlobUrls } from '@/utils/fileUrl'
+import { buildHandleTimerDisplay } from '@/utils/caseTimer'
 
 const router = useRouter()
 const route = useRoute()
@@ -111,6 +131,16 @@ const submitting = ref(false)
 const returning = ref(false)
 const returnDialogVisible = ref(false)
 const returnRemark = ref('')
+
+const handleTimer = computed(() => buildHandleTimerDisplay(caseInfo.value))
+
+const handleTimerBannerText = computed(() => {
+  if (!handleTimer.value.show) return ''
+  const parts = []
+  if (handleTimer.value.remainingText) parts.push(handleTimer.value.remainingText)
+  if (handleTimer.value.deadlineText) parts.push(`截止 ${handleTimer.value.deadlineText}`)
+  return parts.join(' · ')
+})
 
 const statusLabel = computed(() => {
   const map = {
@@ -304,5 +334,10 @@ onBeforeUnmount(() => {
 
 .return-btn {
   margin-top: 12px;
+}
+
+.text-overdue {
+  color: #ee0a24;
+  font-weight: 600;
 }
 </style>

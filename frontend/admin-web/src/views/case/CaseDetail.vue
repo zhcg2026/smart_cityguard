@@ -167,8 +167,11 @@
             <span :class="{ overdue: stage.timedOut && stage.active }">
               {{ stage.timeRemaining || '--' }}
             </span>
+            <span v-if="stage.timeLimitLabel && stage.timerStage === 'handle'" class="timer-deadline-sub">
+              （{{ stage.timeLimitLabel }}{{ stage.continuous ? '·连续计时' : '·仅工作时' }}）
+            </span>
             <span v-if="stage.deadlineTime" class="timer-deadline-sub">
-              （{{ formatDateTime(stage.deadlineTime) }}）
+              （截止 {{ formatDateTime(stage.deadlineTime) }}）
             </span>
             <el-tag v-if="stage.active" type="warning" size="small" class="timer-active-tag">进行中</el-tag>
             <el-tag

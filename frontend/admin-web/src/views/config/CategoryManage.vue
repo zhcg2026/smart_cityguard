@@ -367,9 +367,21 @@ function goStandardImport() {
 }
 
 function formatTimeLimit(row) {
-  if (row.handleTimeLimit) return row.handleTimeLimit
+  const text = row?.handleTimeLimit
+  if (text && String(text).includes('紧急')) {
+    return text
+  }
   const label = TYPE_NAME_MAP[row.handleTimeType] || row.handleTimeType
   return row.handleTimeValue != null ? `${row.handleTimeValue}${label}` : label || '—'
+}
+
+function inferHandleTimeType(row) {
+  const text = row?.handleTimeLimit
+  if (text?.includes('紧急工作时')) return 'urgent_hour'
+  if (text?.includes('紧急工作日')) return 'natural_day'
+  if (text?.includes('工作日') && !text.includes('紧急')) return 'work_day'
+  if (text?.includes('自然日')) return 'natural_day'
+  return row?.handleTimeType ?? 'work_hour'
 }
 
 async function loadBigList() {
@@ -543,7 +555,7 @@ function openStandardDialog(row) {
   standardForm.smallId = selectedSmall.value?.id ?? row?.smallId
   standardForm.conditionDesc = row?.conditionContent || row?.conditionDesc || ''
   standardForm.closeCondition = row?.closeCondition ?? ''
-  standardForm.handleTimeType = row?.handleTimeType ?? 'work_hour'
+  standardForm.handleTimeType = inferHandleTimeType(row)
   standardForm.handleTimeValue = row?.handleTimeValue ?? 4
   standardForm.sortOrder = row?.sortOrder ?? 0
   standardForm.status = row?.status ?? 1

@@ -1,13 +1,21 @@
 package com.cityguard.config.util;
 
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 案件分类编码工具（与 muban 导入规则一致）
  */
 public final class CategoryCodeHelper {
 
-    private CategoryCodeHelper() {
+    private static final Pattern PAT_URGENT_WORK_DAY = Pattern.compile("(\\d+)\\s*紧急工作日");
+    private static final Pattern PAT_URGENT_WORK_HOUR = Pattern.compile("(\\d+)\\s*紧急工作时");
+    private static final Pattern PAT_WORK_DAY = Pattern.compile("(\\d+)\\s*工作日");
+    private static final Pattern PAT_DAY = Pattern.compile("(\\d+)\\s*天");
+    private static final Pattern PAT_HOUR = Pattern.compile("(\\d+)\\s*小时");
+
+    public record ParsedHandleTime(int value, String type) {
     }
 
     public static String buildFullCode(String bigCode, String smallCode) {
@@ -46,6 +54,56 @@ public final class CategoryCodeHelper {
             case "natural_day" -> handleTimeValue + "自然日";
             default -> handleTimeValue + "自然日";
         };
+    }
+
+    /** 从处置时限文案解析类型与数值（与 muban 导入、计时引擎规则一致） */
+    public static ParsedHandleTime parseHandleTimeLimitText(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String s = raw.trim();
+        Matcher m;
+        m = PAT_URGENT_WORK_DAY.matcher(s);
+        if (m.find()) {
+            return new ParsedHandleTime(Integer.parseInt(m.group(1)), "natural_day");
+        }
+        m = PAT_URGENT_WORK_HOUR.matcher(s);
+        if (m.find()) {
+            return new ParsedHandleTime(Integer.parseInt(m.group(1)), "urgent_hour");
+        }
+        m = PAT_WORK_DAY.matcher(s);
+        if (m.find()) {
+            return new ParsedHandleTime(Integer.parseInt(m.group(1)), "work_day");
+        }
+        m = PAT_DAY.matcher(s);
+        if (m.find()) {
+            return new ParsedHandleTime(Integer.parseInt(m.group(1)), "work_day");
+        }
+        m = PAT_HOUR.matcher(s);
+        if (m.find()) {
+            return new ParsedHandleTime(Integer.parseInt(m.group(1)), "work_hour");
+        }
+        return null;
+    }
+
+    /** 文案与 type 不一致时，以文案为准（兼容旧库数据） */
+    public static ParsedHandleTime resolveHandleTime(String handleTimeType, Integer handleTimeValue,
+                                                     String handleTimeLimit) {
+        ParsedHandleTime parsed = parseHandleTimeLimitText(handleTimeLimit);
+        if (parsed != null) {
+            return parsed;
+        }
+        if (handleTimeValue != null && handleTimeValue > 0 && handleTimeType != null && !handleTimeType.isBlank()) {
+            return new ParsedHandleTime(handleTimeValue, handleTimeType);
+        }
+        return null;
+    }
+
+    public static String formatHandleTimeLimitLabel(String handleTimeType, Integer handleTimeValue) {
+        return formatHandleTimeLimit(handleTimeType, handleTimeValue);
+    }
+
+    private CategoryCodeHelper() {
     }
 
     private static String padCodePart(String code) {

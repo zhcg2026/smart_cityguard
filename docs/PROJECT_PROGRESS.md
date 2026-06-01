@@ -4,6 +4,53 @@
 
 ---
 
+## 2026-06-01 工作小结（紧急工作时计时 + 处置端时限展示）
+
+### 当日摘要
+
+1. **紧急工作时连续计时修复**：
+   - 根因：旧 muban 导入后 `case_standard.handle_time_limit` 为「2紧急工作时」，但 `handle_time_type` 仍为 `work_hour`，配置页编辑下拉显示「工作时」；计时引擎若仅信 type 会按工作时段算。
+   - **`HandleTimeLimitNormalizer`** + **`CategoryCodeHelper.parseHandleTimeLimitText`**：解析时限**以文案为准**（含「紧急」→ `urgent_hour` 连续计时）。
+   - **库补丁** `database/patch_fix_urgent_handle_time_type.sql`（已对本机 `cityguard` 执行，雨水井盖等立案条件 type 已改为 `urgent_hour`）。
+   - **剩余时限文案**：`CaseTimerService.formatRemaining` 改为「剩余1小时55分」，避免整小时截断误解。
+2. **管理端**：
+   - `CaseDetail.vue` 处置阶段展示「2紧急工作时·连续计时」+ 截止时间。
+   - `CategoryManage.vue` 列表优先展示含「紧急」原文；编辑时从文案推断正确 `handleTimeType`。
+3. **处置人员移动端（collector-app）**：
+   - 待处置列表：右侧 **剩余时间 + 截止时间**（超时红色）。
+   - 处置详情：顶部提示条 + **「处置时限」** 分组（规则/截止/剩余）。
+   - 新增 `src/utils/caseTimer.js`。
+4. **联调案例**：`YC202606010002`（雨水井盖 / 立案条件 855）派遣 22:36 → 截止 00:36（`urgent_hour` 2 小时连续），与规则一致。
+5. **环境**：四端 8080/3000/3003/9000 已多次重启；改 **timer/config** 须 `mvn install` 后重启 8080。
+
+| 层 | 内容 |
+|----|------|
+| **后端·timer** | `HandleTimeLimitNormalizer`、`CategoryCodeHelper` 解析、`CaseTimerStageDisplay.timeLimitLabel/continuous`、`formatDuration` |
+| **后端·config** | `CategoryCodeHelper.resolveHandleTime` |
+| **库** | `patch_fix_urgent_handle_time_type.sql` |
+| **前端·管理端** | `CaseDetail.vue`、`CategoryManage.vue` |
+| **前端·采集端** | `handle/index.vue`、`HandleDetail.vue`、`utils/caseTimer.js` |
+
+### 当日讨论纪要
+
+| 话题 | 结论 |
+|------|------|
+| 全链路测试 / 待办是否等于完工 | 待办清空 ≠ 全部工作完成；建议阶段 0 验收后再扩功能 |
+| 国产化 / 容量 / 完善路线 | 已整理分阶段路线；不着急上线，优先完善 |
+| 手机端测试 | H5 真机可用（同 WiFi + 可选 `host: true`） |
+| 公众号系列第二篇 | 案件闭环与多角色协同（文稿，未入库） |
+
+### 明天优先（接续）
+
+1. 阶段 0 验收（综合查询/考核/申诉 + 阶段计时 + 紧急工作时新案抽测）。
+2. 采集端 `vite.config.js` 加 `host: true` + 手机 H5 联调说明。
+3. 处置端时限：真机 HANDLER 账号走一遍列表/详情。
+4. 可选：重新导入 muban 刷新全库立案条件（生产慎用全量替换）。
+
+**本地联调**：8080 / 3000 / 3003 / 9000；改 **timer/config** → `mvn clean install -pl smart-cityguard-timer,smart-cityguard-config -am -DskipTests` → 重启 8080。
+
+---
+
 ## 2026-05-30 工作小结（续：菜单/计时规则 + 规划讨论）
 
 ### 当日摘要（代码变更）

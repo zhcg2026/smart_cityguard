@@ -20,4 +20,8 @@ public class CaseTimerStageDisplay {
     private Boolean active;
     /** 本阶段是否已超时（进行中为实时，已结束为历史结果） */
     private Boolean timedOut;
+    /** 是否连续计时（自然时间） */
+    private Boolean continuous;
+    /** 时限规则文案，如 2紧急工作时 */
+    private String timeLimitLabel;
 }
