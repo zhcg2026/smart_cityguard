@@ -105,6 +105,14 @@ Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-m
 
 ## 沟通纪要（接续用）
 
+**2026-06-01**
+
+- **紧急工作时计时**：`HandleTimeLimitNormalizer` + `CategoryCodeHelper` 按文案「紧急」解析；库补丁 **`patch_fix_urgent_handle_time_type.sql`**；剩余时限显示「X小时Y分」。
+- **管理端**：`CaseDetail` 处置阶段连续计时文案；`CategoryManage` 时限展示/编辑推断。
+- **处置端 H5**：`handle` 列表与详情展示截止+剩余；`collector-app/src/utils/caseTimer.js`。
+- **案例**：`YC202606010002` 派遣后 `urgent_hour` 连续 2 小时截止正确。
+- 详见 **`docs/PROJECT_PROGRESS.md` §2026-06-01**。
+
 **2026-05-30**
 
 - **阶段计时展示**：列表/详情按受理/派遣/处置分阶段截止；不再误标「处置截止」。
