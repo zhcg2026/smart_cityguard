@@ -21,9 +21,16 @@ public interface CaseAdjustmentApplyMapper extends BaseMapper<CaseAdjustmentAppl
     @Select("""
             SELECT COUNT(1) FROM case_adjustment_apply
             WHERE case_id = #{caseId} AND apply_type = #{applyType}
-              AND apply_status = 'pending' AND is_deleted = 0
+              AND apply_status IN ('pending', 'pending_dept') AND is_deleted = 0
             """)
     int countPending(@Param("caseId") Long caseId, @Param("applyType") String applyType);
+
+    @Select("""
+            SELECT COUNT(1) FROM case_adjustment_apply
+            WHERE case_id = #{caseId} AND apply_type = #{applyType}
+              AND apply_status = 'pending_dept' AND is_deleted = 0
+            """)
+    int countPendingDept(@Param("caseId") Long caseId, @Param("applyType") String applyType);
 
     @Select("""
             SELECT c.id FROM case_info c

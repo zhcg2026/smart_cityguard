@@ -1,6 +1,7 @@
 package com.cityguard.caseinfo.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.cityguard.caseinfo.dto.HandlerDeptNotice;
 import com.cityguard.timer.model.CaseTimerStageDisplay;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -193,11 +194,31 @@ public class CaseInfo {
     @TableField(exist = false)
     private Boolean suspendEverApproved;
 
-    /** 待审批延期申请（非表字段，详情页派遣员审批用） */
+    /** 待派遣员审批的延期申请（非表字段） */
     @TableField(exist = false)
     private CaseAdjustmentApply pendingExtensionApply;
 
-    /** 待审批挂账申请（非表字段） */
+    /** 待派遣员审批的挂账申请（非表字段） */
     @TableField(exist = false)
     private CaseAdjustmentApply pendingSuspendApply;
+
+    /** 待部门初审的延期申请（处置人员发起，非表字段） */
+    @TableField(exist = false)
+    private CaseAdjustmentApply pendingDeptExtensionApply;
+
+    /** 待部门初审的挂账申请（非表字段） */
+    @TableField(exist = false)
+    private CaseAdjustmentApply pendingDeptSuspendApply;
+
+    /** 最近一次被驳回的延期申请（非表字段，供申请人查看驳回意见） */
+    @TableField(exist = false)
+    private CaseAdjustmentApply lastRejectedExtensionApply;
+
+    /** 最近一次被驳回的挂账申请（非表字段，供申请人查看驳回意见） */
+    @TableField(exist = false)
+    private CaseAdjustmentApply lastRejectedSuspendApply;
+
+    /** 处置部门对当前处置人员当次反馈（非表字段） */
+    @TableField(exist = false)
+    private HandlerDeptNotice handlerDeptNotice;
 }

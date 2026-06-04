@@ -28,7 +28,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="reportTime" label="上报时间" width="180" />
+        <el-table-column prop="reportTime" label="上报时间" width="180">
+          <template #default="{ row }">{{ formatDateTime(row.reportTime) }}</template>
+        </el-table-column>
         <el-table-column prop="reporterName" label="上报人" width="100" />
         <el-table-column
           v-if="['pending_dispatch', 'dispatcher_pending_dispatch', 'dispatcher_returned'].includes(currentTab)"

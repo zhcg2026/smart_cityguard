@@ -89,14 +89,15 @@ public class CaseReportServiceImpl implements CaseReportService {
         if (q.getMetricKey() == null || q.getMetricKey().isBlank()) {
             throw new BusinessException("缺少反查指标");
         }
-        if (q.getDrillHandleDeptId() == null) {
-            throw new BusinessException("缺少处置部门");
-        }
         int pageNum = q.getPageNum() != null && q.getPageNum() > 0 ? q.getPageNum() : 1;
         int pageSize = q.getPageSize() != null && q.getPageSize() > 0 ? Math.min(q.getPageSize(), 100) : 10;
         Page<CaseInfo> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<CaseInfo> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(CaseInfo::getHandleDeptId, q.getDrillHandleDeptId());
+        wrapper.isNotNull(CaseInfo::getHandleDeptId);
+        boolean drillAll = Boolean.TRUE.equals(q.getDrillAllDepts());
+        if (!drillAll && q.getDrillHandleDeptId() != null) {
+            wrapper.eq(CaseInfo::getHandleDeptId, q.getDrillHandleDeptId());
+        }
         CaseDynamicWhereBuilder.applyToWrapper(wrapper, q);
         String metricSql = CaseReportMetricSql.metricCondition(q.getMetricKey()).trim();
         if (metricSql.regionMatches(true, 0, "AND ", 0, 4)) {
@@ -161,6 +162,7 @@ public class CaseReportServiceImpl implements CaseReportService {
 
     private static CaseDeptStatisticsRow sumTotalRow(List<CaseDeptStatisticsRow> rows, long grandTotal) {
         CaseDeptStatisticsRow t = new CaseDeptStatisticsRow();
+        t.setHandleDeptId(null);
         t.setHandleDeptName("合计");
         for (CaseDeptStatisticsRow r : rows) {
             t.setRegisteredCount(t.getRegisteredCount() + r.getRegisteredCount());

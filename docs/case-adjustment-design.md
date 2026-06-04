@@ -1,38 +1,46 @@
-# 案件延期 / 挂账 — 设计定稿（2026-05-25）
+# 案件延期 / 挂账 — 设计定稿（2026-05-25，2026-06 两级审批）
 
-## 流程
+## 流程（两级）
 
-- **申请**：处置部门（DEPT）在管理端案件详情提交。
-- **审批**：当案 **派遣员（DISPATCHER）** 批准/驳回；不经批转/回退接口。
-- **主案件路由不变**：仅改 `deadline_time`、计时状态、挂账标记。
+```mermaid
+flowchart LR
+  H[处置人员 HANDLER] -->|申请延期/挂账| D[处置部门 DEPT 初审]
+  D -->|同意报送| P[派遣员 DISPATCHER 终审]
+  D -->|驳回| H
+  P -->|批准| OK[延长时限/挂账]
+  P -->|驳回| END[结束]
+  DEPT2[处置部门直接申请] --> P
+```
+
+- **处置人员**：移动端/管理端提交 → 状态 `pending_dept` → **处置部门**同意报送或驳回（可写意见，如「可调库存，无需延期」）。
+- **处置部门**：可直接申请 → 状态 `pending` → 跳过部门初审，直达派遣员。
+- **派遣员**：仅审批 `pending` 状态；批准延期则 `extendHandleDeadline`，批准挂账则 `pauseHandleTimer`。
 
 ## 规则
 
 | 类型 | 规则 |
 |------|------|
 | 延期 | 在 **当前 deadline** 上 +1 个原处置时限；**批准满 2 次** 后不可再申请；**驳回不占次数** |
-| 挂账 | 处置部门 **自选挂账截止日期**（自今日起最长 **1 年**）；**批准 1 次** 后不可再挂；驳回可再申请；到期 **自动恢复**；挂账期间 **不可处置操作** |
-| 可申请状态 | **待指派**（`pending_handle`）、**处置中**（`handling`），且未挂账、无同类型 pending 申请 |
+| 挂账 | 自选挂账截止日期（最长 1 年）；**批准 1 次**；到期自动恢复；挂账期间不可处置 |
+| 可申请状态 | `pending_handle` / `handling`，未挂账、无同类型在途申请、**处置未超时** |
 
 ## 接口
 
 | 方法 | 路径 | 角色 |
 |------|------|------|
-| POST | `/case/adjustment/apply` | DEPT |
-| GET | `/case/adjustment/pending` | DISPATCHER / ADMIN / SUPERVISOR |
-| POST | `/case/adjustment/review` | DISPATCHER |
+| POST | `/case/adjustment/apply` | HANDLER→`pending_dept`；DEPT→`pending` |
+| GET | `/case/adjustment/pending-dept` | DEPT 部门待审列表 |
+| POST | `/case/adjustment/dept-review` | DEPT 初审 |
+| GET | `/case/adjustment/pending` | DISPATCHER 待审列表 |
+| POST | `/case/adjustment/review` | DISPATCHER 终审 |
 | GET | `/case/adjustment/list/{caseId}` | 案件可读角色 |
 
-## 表
+## 库
 
-- `case_adjustment_apply` — 申请单
-- `case_info` — `dispatch_operator_id`、`is_suspended`、`suspend_until`、`extension_approved_count`
+- `case_adjustment_apply.apply_status`：`pending_dept` | `pending` | `approved` | `rejected`
+- 部门初审字段：`dept_reviewer_id`、`dept_review_remark`、`dept_review_time`（见 `database/patch_case_adjustment_dept_review.sql`）
 
 ## 计时
 
 - 延期：`CaseTimerService.extendHandleDeadline`
-- 挂账：`pauseHandleTimer`；定时任务扫 `is_suspended=1 AND suspend_until<=NOW()` → `resumeHandleTimer`
-
-## 申诉（后续）
-
-派遣员初审 + 受理员终审；通过后不计超时。本期不实现。
+- 挂账：`pauseHandleTimer`；定时任务到期恢复

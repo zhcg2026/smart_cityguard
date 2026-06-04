@@ -102,8 +102,18 @@ Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-m
 - **HANDLER 登录移动端仍是采集员界面**：`collector-app` 已按角色分流至 `/handle`；纯 HANDLER 无上报 Tab。
 - **处置详情无地图/上报图不显示**：地图见 `CaseLocationMap.vue`；图片走 **`/api/file/preview`**，非 MinIO 直链。
 - **部门详情无「批转」**：须状态 **`handle_finish`** 或 `awaitingDeptConfirm=true`；DEPT 的 `department_id` 须等于案件 `handle_dept_id`。
+- **HANDLER 申请延期报「仅处置部门…」或详情报 `Unknown column 'dept_reviewer_id'`**：执行 **`database/patch_case_adjustment_dept_review.sql`**；改 **case** 后 **`mvn install`** 并重启 8080。
+- **延期/挂账两级审批**：HANDLER→`pending_dept`→DEPT 初审→DISPATCHER 终审；已超时不可申请；详见 **`docs/case-adjustment-design.md`**。
 
 ## 沟通纪要（接续用）
+
+**2026-06-02**
+
+- **综合查询/考核**：状态/来源修正、大小类级联、问题描述；合计行反查；`caseQuery.js`。
+- **延期/挂账两级审批**：HANDLER 可申请；DEPT 同意报送/驳回；库 **`patch_case_adjustment_dept_review.sql`**；超时不可申请。
+- **处置 UX**：`handlerDeptNotice` 部门当次反馈；处置照片按时间横向批次；流程记录单行紧凑。
+- **存草稿/时间**：Jackson 灵活日期；列表/详情去 `T`。
+- **明天优先**：延期挂账全链路 + 阶段 0 验收。详见 **`docs/PROJECT_PROGRESS.md` §2026-06-02**。
 
 **2026-06-01**
 

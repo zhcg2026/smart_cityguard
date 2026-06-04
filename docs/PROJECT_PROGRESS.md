@@ -4,6 +4,56 @@
 
 ---
 
+## 2026-06-02 工作小结（综合查询/考核 + 延期挂账两级审批 + 处置 UX）
+
+### 当日摘要
+
+1. **综合查询（CaseQuery）**：
+   - 问题状态：合并重复「作废」、已结案含 `forced_close`；去掉无业务含义的「案件登记/部门批转」来源。
+   - 事部件类型→大类→小类级联；新增问题描述（包含/等于）筛选。
+   - 新增 `frontend/admin-web/src/utils/caseQuery.js`；后端 `CaseQueryFilterSupport`、来源/描述条件。
+2. **考核统计（evaluation/index.vue）**：
+   - 筛选与综合查询对齐；**合计行**数字可点击反查（`drillAllDepts`）。
+   - 后端 `CaseReportServiceImpl.drillDown` 允许 `drillHandleDeptId` 为空查全部部门。
+3. **内容发布存草稿**：`FlexibleLocalDateTimeDeserializer` + `@JsonFormat` 修复 `2026-06-30 00:00:00` 解析失败。
+4. **列表/详情时间**：`formatDateTime` 去掉 `T`；CaseList/CasePending/CaseDetail 已统一。
+5. **延期/挂账两级审批**（核心）：
+   - **HANDLER** 申请 → `pending_dept` → **DEPT** 同意报送/驳回 → **DISPATCHER** 终审。
+   - **DEPT** 直接申请跳过部门初审；库补丁 `database/patch_case_adjustment_dept_review.sql`（部门初审字段）。
+   - 已超时案件不可申请延期/挂账（`CaseTimerService.isHandleStageOverdue`）。
+   - 处置人员详情：`handlerDeptNotice` 展示部门当次反馈（指派/打回/驳回理由）。
+6. **处置照片展示**：
+   - 移动端/管理端：按上传时间分批，**横向排列、旧→新**；点击预览当前图。
+   - 打回后再处置可查看历次 `handle_finish` 照片。
+7. **管理端案件详情**：
+   - 现场照片分区（上报/处置批次/核查/核实）；流程记录**单行紧凑**（时间+加粗步骤名+奇偶行底色）。
+
+| 层 | 内容 |
+|----|------|
+| **库** | `patch_case_adjustment_dept_review.sql` |
+| **后端·case** | 两级审批、`HandlerDeptNotice`、查询/统计/反查 |
+| **后端·common** | `JacksonDateTimeConfig`、`FlexibleLocalDateTimeDeserializer` |
+| **后端·timer** | `isHandleStageOverdue` |
+| **前端·管理端** | CaseQuery、evaluation、CaseDetail（附件/流程/延期审批） |
+| **前端·采集端** | HandleDetail（部门提示、处置照片批次、延期/挂账） |
+| **文档** | `case-adjustment-design.md`、`case-comprehensive-query-design.md` |
+
+### 联调注意
+
+- 改 **case/common/message/timer** 后须 `mvn install` 对应模块并重启 8080。
+- 二级审批须执行 **`patch_case_adjustment_dept_review.sql`**（本机 `cityguard` 已执行）。
+
+### 明天优先（接续）
+
+1. **延期/挂账全链路验收**：HANDLER 申请 → DEPT 驳回/同意 → DISPATCHER 批准/驳回；超时不可申请边界 case。
+2. **综合查询 + 考核统计 + 申诉** 与阶段 0 验收清单对照复测。
+3. 可选：管理端「延期/挂账审批」独立页增加「部门待审」Tab（`GET /case/adjustment/pending-dept`）。
+4. 可选：`AdjustmentReview.vue` 与案件详情部门审批入口统一体验。
+
+**本地联调**：8080 / 3000 / 3003；改 case 模块 → `mvn clean install -pl smart-cityguard-case,smart-cityguard-common,smart-cityguard-message,smart-cityguard-timer -am -DskipTests` → 重启 8080。
+
+---
+
 ## 2026-06-01 工作小结（紧急工作时计时 + 处置端时限展示）
 
 ### 当日摘要

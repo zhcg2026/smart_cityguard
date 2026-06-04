@@ -24,6 +24,7 @@ import com.cityguard.caseinfo.dto.CaseReturnRequest;
 import com.cityguard.caseinfo.dto.CaseRevokeAssignRequest;
 import com.cityguard.caseinfo.dto.CaseSendTaskRequest;
 import com.cityguard.caseinfo.dto.CollectorCandidateDto;
+import com.cityguard.caseinfo.dto.HandlerDeptNotice;
 import com.cityguard.common.constant.CaseFlowOperateType;
 import com.cityguard.common.spi.UserNotificationSender;
 import com.cityguard.caseinfo.entity.*;
@@ -295,6 +296,7 @@ public class CaseServiceImpl implements CaseService {
     public CaseInfo getCaseDetail(Long id, Long userId, List<String> roles) {
         CaseInfo caseInfo = loadCaseDetail(id);
         assertCaseReadScope(caseInfo, userId, roles);
+        enrichHandlerDeptNotice(caseInfo, userId, roles);
         return caseInfo;
     }
 
@@ -313,6 +315,153 @@ public class CaseServiceImpl implements CaseService {
         caseInfo.setTimerStages(caseTimerService.buildCaseTimerStages(caseInfo.getId()));
         caseAdjustmentService.enrichCaseDetail(caseInfo);
         return caseInfo;
+    }
+
+    private static final List<String> HANDLER_ROUND_FLOW_NODES = List.of("指派处置人员", "部门打回处置人员");
+    private static final List<String> DEPT_TO_HANDLER_FLOW_NODES = List.of(
+            "指派处置人员", "部门打回处置人员", "部门驳回延期", "部门驳回挂账");
+
+    /**
+     * 处置人员详情：展示本处置轮次内处置部门最新一条反馈（指派说明、打回理由、驳回延期/挂账等）。
+     */
+    private void enrichHandlerDeptNotice(CaseInfo caseInfo, Long viewerId, List<String> roles) {
+        if (caseInfo == null || caseInfo.getCurrentHandlerId() == null || viewerId == null) {
+            return;
+        }
+        if (roles == null || !roles.contains(ROLE_HANDLER)) {
+            return;
+        }
+        if (!viewerId.equals(caseInfo.getCurrentHandlerId())) {
+            return;
+        }
+        Long handlerId = caseInfo.getCurrentHandlerId();
+        String handlerName = caseInfo.getCurrentHandlerName();
+
+        List<CaseFlowRecord> flows = flowRecordMapper.selectByCaseId(caseInfo.getId());
+        if (flows == null || flows.isEmpty()) {
+            return;
+        }
+
+        CaseFlowRecord roundAnchor = null;
+        for (int i = flows.size() - 1; i >= 0; i--) {
+            CaseFlowRecord flow = flows.get(i);
+            if (!HANDLER_ROUND_FLOW_NODES.contains(flow.getNodeName())) {
+                continue;
+            }
+            if (flowTargetsHandler(flow, handlerId, handlerName)) {
+                roundAnchor = flow;
+                break;
+            }
+        }
+        if (roundAnchor == null || roundAnchor.getOperateTime() == null) {
+            return;
+        }
+
+        HandlerDeptNotice latest = null;
+        LocalDateTime anchorTime = roundAnchor.getOperateTime();
+        for (int i = flows.size() - 1; i >= 0; i--) {
+            CaseFlowRecord flow = flows.get(i);
+            if (flow.getOperateTime() == null || flow.getOperateTime().isBefore(anchorTime)) {
+                continue;
+            }
+            if (!DEPT_TO_HANDLER_FLOW_NODES.contains(flow.getNodeName())) {
+                continue;
+            }
+            if (("指派处置人员".equals(flow.getNodeName()) || "部门打回处置人员".equals(flow.getNodeName()))
+                    && !flowTargetsHandler(flow, handlerId, handlerName)) {
+                continue;
+            }
+            HandlerDeptNotice candidate = buildHandlerDeptNoticeFromFlow(flow);
+            if (candidate != null && isNewerNotice(candidate, latest)) {
+                latest = candidate;
+            }
+        }
+
+        HandlerDeptNotice extReject = buildHandlerDeptNoticeFromRejectedApply(
+                caseInfo.getLastRejectedExtensionApply(), handlerId, "部门驳回延期", anchorTime);
+        if (extReject != null && isNewerNotice(extReject, latest)) {
+            latest = extReject;
+        }
+        HandlerDeptNotice suspendReject = buildHandlerDeptNoticeFromRejectedApply(
+                caseInfo.getLastRejectedSuspendApply(), handlerId, "部门驳回挂账", anchorTime);
+        if (suspendReject != null && isNewerNotice(suspendReject, latest)) {
+            latest = suspendReject;
+        }
+
+        if (latest != null && latest.getContent() != null && !latest.getContent().isBlank()) {
+            caseInfo.setHandlerDeptNotice(latest);
+        }
+    }
+
+    private static boolean flowTargetsHandler(CaseFlowRecord flow, Long handlerId, String handlerName) {
+        if (flow.getReceiverId() != null && handlerId != null && handlerId.equals(flow.getReceiverId())) {
+            return true;
+        }
+        String opinion = flow.getOperateOpinion();
+        return handlerName != null && !handlerName.isBlank()
+                && opinion != null && opinion.contains(handlerName);
+    }
+
+    private static HandlerDeptNotice buildHandlerDeptNoticeFromFlow(CaseFlowRecord flow) {
+        if (flow == null) {
+            return null;
+        }
+        String content = extractHandlerNoticeContent(flow.getNodeName(), flow.getOperateOpinion());
+        if (content == null || content.isBlank()) {
+            return null;
+        }
+        HandlerDeptNotice notice = new HandlerDeptNotice();
+        notice.setTitle(flow.getNodeName());
+        notice.setContent(content);
+        notice.setTime(flow.getOperateTime());
+        return notice;
+    }
+
+    private static HandlerDeptNotice buildHandlerDeptNoticeFromRejectedApply(
+            CaseAdjustmentApply apply, Long handlerId, String title, LocalDateTime anchorTime) {
+        if (apply == null || handlerId == null || !handlerId.equals(apply.getApplicantId())) {
+            return null;
+        }
+        if (apply.getDeptReviewerId() == null || apply.getReviewerId() != null) {
+            return null;
+        }
+        if (apply.getDeptReviewTime() == null || apply.getDeptReviewTime().isBefore(anchorTime)) {
+            return null;
+        }
+        String content = apply.getDeptReviewRemark() != null ? apply.getDeptReviewRemark().trim() : "";
+        if (content.isBlank()) {
+            return null;
+        }
+        HandlerDeptNotice notice = new HandlerDeptNotice();
+        notice.setTitle(title);
+        notice.setContent(content);
+        notice.setTime(apply.getDeptReviewTime());
+        return notice;
+    }
+
+    private static boolean isNewerNotice(HandlerDeptNotice candidate, HandlerDeptNotice current) {
+        if (candidate == null || candidate.getTime() == null) {
+            return false;
+        }
+        if (current == null || current.getTime() == null) {
+            return true;
+        }
+        return !candidate.getTime().isBefore(current.getTime());
+    }
+
+    private static String extractHandlerNoticeContent(String nodeName, String opinion) {
+        if (opinion == null || opinion.isBlank()) {
+            return "";
+        }
+        if (nodeName != null && nodeName.startsWith("部门驳回")) {
+            int colon = opinion.indexOf('：');
+            return colon >= 0 ? opinion.substring(colon + 1).trim() : opinion.trim();
+        }
+        if ("指派处置人员".equals(nodeName) || "部门打回处置人员".equals(nodeName)) {
+            int semi = opinion.indexOf('；');
+            return semi >= 0 && semi < opinion.length() - 1 ? opinion.substring(semi + 1).trim() : "";
+        }
+        return opinion.trim();
     }
 
     private void applyTimerDisplay(CaseInfo caseInfo) {
@@ -1000,7 +1149,8 @@ public class CaseServiceImpl implements CaseService {
         String flowRemark = "指派处置人员：" + handlerName
                 + (opinion.isBlank() ? "" : "；" + opinion);
         saveFlowRecord(caseId, updated.getCaseCode(), CaseStatusConstant.HANDLING, "指派处置人员",
-                flowRemark, operatorId, operatorName);
+                CaseFlowOperateType.FORWARD, flowRemark, operatorId, operatorName,
+                handler.getId(), handlerName);
 
         notifyUserTask(handler.getId(), "新案件待处置",
                 "案件 " + updated.getCaseCode() + " 已指派给您，请现场处置",
@@ -1765,9 +1915,7 @@ public class CaseServiceImpl implements CaseService {
         }
         applyDateFilter(wrapper, CaseInfo::getReportTime, q.getReportTime(), false);
         applyDateFilter(wrapper, CaseInfo::getCloseTime, q.getCloseTime(), true);
-        if (q.getSourceTypes() != null && !q.getSourceTypes().isEmpty()) {
-            wrapper.in(CaseInfo::getSourceType, q.getSourceTypes());
-        }
+        com.cityguard.caseinfo.support.CaseQueryFilterSupport.applyCommonFilters(wrapper, q);
         if (q.getRespGridIds() != null && !q.getRespGridIds().isEmpty()) {
             wrapper.in(CaseInfo::getRespGridId, q.getRespGridIds());
         }

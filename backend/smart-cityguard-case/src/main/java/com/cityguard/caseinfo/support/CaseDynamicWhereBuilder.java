@@ -2,6 +2,7 @@ package com.cityguard.caseinfo.support;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cityguard.caseinfo.dto.CaseDateFilter;
+import com.cityguard.caseinfo.dto.CaseQueryCriteria;
 import com.cityguard.caseinfo.dto.CaseReportCriteria;
 import com.cityguard.caseinfo.entity.CaseInfo;
 
@@ -59,10 +60,7 @@ public final class CaseDynamicWhereBuilder {
         appendDateFilterSql(w, "c.report_time", q.getReportTime(), false);
         appendDateFilterSql(w, "c.close_time", q.getCloseTime(), true);
         appendDateFilterSql(w, "c.deadline_time", q.getDeadlineTime(), false);
-        if (q.getSourceTypes() != null && !q.getSourceTypes().isEmpty()) {
-            w.append(" AND c.source_type IN (" + inPlaceholders(q.getSourceTypes().size()) + ") ",
-                    q.getSourceTypes().toArray());
-        }
+        appendCaseOriginSql(w, CaseQueryFilterSupport.resolveCaseOrigins(q));
         if (q.getRespGridIds() != null && !q.getRespGridIds().isEmpty()) {
             w.append(" AND c.resp_grid_id IN (" + inPlaceholders(q.getRespGridIds().size()) + ") ",
                     q.getRespGridIds().toArray());
@@ -96,6 +94,9 @@ public final class CaseDynamicWhereBuilder {
                 w.append(" AND c.address LIKE ? ", "%" + addr + "%");
             }
         }
+        if (q.getCategoryType() != null && !q.getCategoryType().isBlank()) {
+            w.append(" AND c.category_type = ? ", q.getCategoryType().trim());
+        }
         if (q.getDescription() != null && !q.getDescription().isBlank()) {
             String desc = q.getDescription().trim();
             String match = q.getDescriptionMatch() != null ? q.getDescriptionMatch().trim() : "contains";
@@ -106,6 +107,65 @@ public final class CaseDynamicWhereBuilder {
             }
         }
         return w;
+    }
+
+    private static void appendCaseOriginSql(WhereParts w, List<String> origins) {
+        if (origins == null || origins.isEmpty()) {
+            return;
+        }
+        StringBuilder clause = new StringBuilder(" AND (");
+        boolean first = true;
+        for (String raw : origins) {
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            if (!first) {
+                clause.append(" OR ");
+            }
+            first = false;
+            String key = raw.trim().toLowerCase(Locale.ROOT);
+            switch (key) {
+                case "collector" -> clause.append("c.source_type = ?");
+                case "public" -> clause.append("c.source_type = ?");
+                case "video" -> clause.append("c.source_type = ?");
+                case "leader" -> clause.append("(c.source_type = ? OR (c.source_type = ? AND c.source_desc LIKE ?))");
+                case "phone" -> clause.append("(c.source_type = ? AND c.source_desc LIKE ?)");
+                case "citizen" -> clause.append("(c.source_type = ? AND c.source_desc LIKE ?)");
+                default -> clause.append("c.source_type = ?");
+            }
+        }
+        if (first) {
+            return;
+        }
+        clause.append(") ");
+        w.append(clause.toString(), caseOriginSqlParams(origins));
+    }
+
+    private static Object[] caseOriginSqlParams(List<String> origins) {
+        List<Object> params = new ArrayList<>();
+        for (String raw : origins) {
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            String key = raw.trim().toLowerCase(Locale.ROOT);
+            switch (key) {
+                case "collector", "public", "video", "default" -> params.add(key);
+                case "leader" -> {
+                    params.add("leader");
+                    params.add("register");
+                    params.add("%领导%");
+                }
+                case "phone" -> {
+                    params.add("register");
+                    params.add("%电话%");
+                }
+                case "citizen" -> {
+                    params.add("register");
+                    params.add("%市民%");
+                }
+            }
+        }
+        return params.toArray();
     }
 
     public static void applyToWrapper(LambdaQueryWrapper<CaseInfo> wrapper, CaseReportCriteria q) {
@@ -125,9 +185,10 @@ public final class CaseDynamicWhereBuilder {
         applyDateFilterWrapper(wrapper, CaseInfo::getReportTime, q.getReportTime(), false);
         applyDateFilterWrapper(wrapper, CaseInfo::getCloseTime, q.getCloseTime(), true);
         applyDateFilterWrapper(wrapper, CaseInfo::getDeadlineTime, q.getDeadlineTime(), false);
-        if (q.getSourceTypes() != null && !q.getSourceTypes().isEmpty()) {
-            wrapper.in(CaseInfo::getSourceType, q.getSourceTypes());
+        if (q.getCategoryType() != null && !q.getCategoryType().isBlank()) {
+            wrapper.eq(CaseInfo::getCategoryType, q.getCategoryType().trim());
         }
+        CaseQueryFilterSupport.applyCaseOriginFilter(wrapper, CaseQueryFilterSupport.resolveCaseOrigins(q));
         if (q.getRespGridIds() != null && !q.getRespGridIds().isEmpty()) {
             wrapper.in(CaseInfo::getRespGridId, q.getRespGridIds());
         }

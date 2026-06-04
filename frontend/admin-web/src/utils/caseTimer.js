@@ -36,3 +36,13 @@ export function isRowStageOverdue(row) {
   if (row?.timerStage === 'handle') return row?.handleTimeout
   return false
 }
+
+/** 待指派/处置中：处置阶段是否已超时（不可申请延期/挂账） */
+export function isHandleStageOverdue(caseInfo) {
+  if (!caseInfo) return false
+  const st = caseInfo.caseStatus
+  if (st !== 'pending_handle' && st !== 'handling') return false
+  const handleStage = caseInfo.timerStages?.find((s) => s.timerStage === 'handle')
+  if (handleStage?.active && handleStage.timedOut) return true
+  return isRowStageOverdue({ ...caseInfo, timerStage: 'handle' })
+}

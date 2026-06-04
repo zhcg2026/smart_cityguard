@@ -23,6 +23,10 @@ public class CaseAdjustmentApply {
     private Long applicantId;
     private String applicantName;
     private Long applicantDeptId;
+    private Long deptReviewerId;
+    private String deptReviewerName;
+    private String deptReviewRemark;
+    private LocalDateTime deptReviewTime;
     private Long reviewerId;
     private String reviewerName;
     private String reviewRemark;

@@ -19,8 +19,17 @@ public class CaseQueryCriteria {
     private CaseDateFilter reportTime;
     private CaseDateFilter closeTime;
 
-    /** 问题来源 source_type，多选 */
+    /** @deprecated 请用 caseOrigins（业务来源口径） */
     private List<String> sourceTypes;
+
+    /**
+     * 问题来源（业务口径），多选：
+     * collector / citizen / phone / leader / public / video
+     */
+    private List<String> caseOrigins;
+
+    /** 事部件类型：component / event */
+    private String categoryType;
 
     /** 责任网格 resp_grid_id，多选 */
     private List<Long> respGridIds;
@@ -41,6 +50,12 @@ public class CaseQueryCriteria {
 
     /** 地址匹配：eq、contains */
     private String addressMatch;
+
+    /** 问题描述 */
+    private String description;
+
+    /** 描述匹配：eq、contains */
+    private String descriptionMatch;
 
     private Integer pageNum = 1;
     private Integer pageSize = 10;

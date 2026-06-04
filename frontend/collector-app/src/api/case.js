@@ -53,6 +53,15 @@ export function handlerReturnDept(data) {
   })
 }
 
+// 申请延期/挂账（提交至处置部门初审）
+export function applyCaseAdjustment(data) {
+  return request({
+    url: '/case/adjustment/apply',
+    method: 'post',
+    data
+  })
+}
+
 // 案件附件
 export function getCaseAttachments(caseId) {
   return request({

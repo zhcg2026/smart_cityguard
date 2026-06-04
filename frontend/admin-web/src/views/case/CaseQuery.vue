@@ -22,7 +22,7 @@
           <el-col :xs="24" :sm="12" :lg="8">
             <el-form-item label="问题状态">
               <el-select v-model="form.caseStatuses" multiple collapse-tags clearable placeholder="多选" style="width: 100%">
-                <el-option v-for="(label, value) in statusOptions" :key="value" :label="label" :value="value" />
+                <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -87,15 +87,49 @@
           </el-col>
           <el-col :xs="24" :sm="12" :lg="8">
             <el-form-item label="问题来源">
-              <el-select v-model="form.sourceTypes" multiple collapse-tags clearable placeholder="多选" style="width: 100%">
-                <el-option v-for="s in sourceOptions" :key="s.value" :label="s.label" :value="s.value" />
+              <el-select v-model="form.caseOrigins" multiple collapse-tags clearable placeholder="多选" style="width: 100%">
+                <el-option v-for="s in originOptions" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
             </el-form-item>
           </el-col>
         </el-row>
 
         <el-row :gutter="16">
-          <el-col :xs="24" :sm="12" :lg="8">
+          <el-col :xs="24" :sm="12" :lg="6">
+            <el-form-item label="事部件类型">
+              <el-select
+                v-model="form.categoryType"
+                clearable
+                placeholder="部件/事件"
+                style="width: 100%"
+                @change="onCategoryTypeChange"
+              >
+                <el-option label="部件" value="component" />
+                <el-option label="事件" value="event" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :lg="6">
+            <el-form-item label="大类">
+              <el-select
+                v-model="form.categoryBigId"
+                clearable
+                filterable
+                placeholder="先选类型"
+                :disabled="!form.categoryType"
+                style="width: 100%"
+                @change="onCategoryBigChange"
+              >
+                <el-option
+                  v-for="b in bigOptions"
+                  :key="b.id"
+                  :label="`${b.bigCode || ''} ${b.bigName}`"
+                  :value="b.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :lg="6">
             <el-form-item label="问题小类">
               <el-select
                 v-model="form.smallIds"
@@ -103,25 +137,29 @@
                 filterable
                 collapse-tags
                 clearable
-                placeholder="多选"
+                placeholder="先选大类"
+                :disabled="!form.categoryBigId"
                 style="width: 100%"
               >
                 <el-option
                   v-for="s in smallOptions"
                   :key="s.id"
-                  :label="smallLabel(s)"
+                  :label="`${s.smallCode || ''} ${s.smallName}`"
                   :value="s.id"
                 />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12" :lg="8">
+          <el-col :xs="24" :sm="12" :lg="6">
             <el-form-item label="责任网格">
               <el-select v-model="form.respGridIds" multiple collapse-tags clearable placeholder="多选" style="width: 100%">
                 <el-option v-for="g in respGridOptions" :key="g.id" :label="g.respGridName" :value="g.id" />
               </el-select>
             </el-form-item>
           </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
           <el-col :xs="24" :sm="12" :lg="8">
             <el-form-item label="处置部门">
               <el-select v-model="form.handleDeptId" clearable filterable placeholder="请选择" style="width: 100%">
@@ -129,9 +167,6 @@
               </el-select>
             </el-form-item>
           </el-col>
-        </el-row>
-
-        <el-row :gutter="16">
           <el-col :xs="24" :sm="12" :lg="8">
             <el-form-item label="采集员">
               <el-select v-model="form.reporterId" clearable filterable placeholder="上报人" style="width: 100%">
@@ -150,6 +185,22 @@
             <el-form-item label="派遣员">
               <el-select v-model="form.dispatchOperatorId" clearable filterable placeholder="派遣人" style="width: 100%">
                 <el-option v-for="u in dispatcherOptions" :key="u.id" :label="userLabel(u)" :value="u.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :xs="24" :sm="12" :lg="10">
+            <el-form-item label="问题描述">
+              <el-input v-model="form.description" placeholder="描述关键词" clearable />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :lg="6">
+            <el-form-item label="描述匹配">
+              <el-select v-model="form.descriptionMatch" style="width: 100%">
+                <el-option label="包含" value="contains" />
+                <el-option label="等于" value="eq" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -196,9 +247,10 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="sourceType" label="来源" width="100">
-          <template #default="{ row }">{{ sourceLabel(row.sourceType) }}</template>
+        <el-table-column prop="sourceType" label="来源" width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ caseOriginLabelFromRow(row) }}</template>
         </el-table-column>
+        <el-table-column prop="description" label="问题描述" min-width="140" show-overflow-tooltip />
         <el-table-column prop="respGridName" label="责任网格" width="100" show-overflow-tooltip />
         <el-table-column prop="handleDeptName" label="处置部门" width="120" show-overflow-tooltip />
         <el-table-column prop="reporterName" label="采集员" width="90" />
@@ -236,7 +288,14 @@ import { getRespGridList } from '@/api/geo'
 import { getUserList, getDeptTree } from '@/api/system'
 import { RoleCode } from '@/utils/roleAccess'
 import { formatDateTime } from '@/utils/dateFormat'
-import { formatCaseStatusLabel, getCaseStatusTagType, CASE_STATUS_LABELS } from '@/utils/caseStatus'
+import { formatCaseStatusLabel, getCaseStatusTagType } from '@/utils/caseStatus'
+import {
+  CASE_QUERY_STATUS_OPTIONS,
+  CASE_QUERY_ORIGIN_OPTIONS,
+  expandCaseStatusesForQuery,
+  caseOriginLabelFromRow,
+  categoryApiType
+} from '@/utils/caseQuery'
 
 const router = useRouter()
 
@@ -247,16 +306,8 @@ const dateOps = [
   { label: '介于', value: 'between' }
 ]
 
-const sourceOptions = [
-  { label: '采集员上报', value: 'collector' },
-  { label: '案件登记', value: 'register' },
-  { label: '领导批示', value: 'leader' },
-  { label: '部门批转', value: 'transfer' },
-  { label: '公众举报', value: 'public' },
-  { label: '视频上报', value: 'video' }
-]
-
-const statusOptions = CASE_STATUS_LABELS
+const originOptions = CASE_QUERY_ORIGIN_OPTIONS
+const statusOptions = CASE_QUERY_STATUS_OPTIONS
 
 const loading = ref(false)
 const caseList = ref([])
@@ -264,6 +315,7 @@ const pageNum = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
+const bigOptions = ref([])
 const smallOptions = ref([])
 const respGridOptions = ref([])
 const deptOptions = ref([])
@@ -280,10 +332,14 @@ const defaultForm = () => ({
   closeTimeOp: '',
   closeTimeStart: '',
   closeTimeRange: [],
-  sourceTypes: [],
+  caseOrigins: [],
   respGridIds: [],
   caseStatuses: [],
+  categoryType: '',
+  categoryBigId: null,
   smallIds: [],
+  description: '',
+  descriptionMatch: 'contains',
   handleDeptId: null,
   reporterId: null,
   registerOperatorId: null,
@@ -298,13 +354,32 @@ function userLabel(u) {
   return u.realName || u.username || String(u.id)
 }
 
-function smallLabel(s) {
-  return s.bigName ? `${s.bigName} / ${s.smallName}` : s.smallName
+async function onCategoryTypeChange() {
+  form.categoryBigId = null
+  form.smallIds = []
+  bigOptions.value = []
+  smallOptions.value = []
+  if (!form.categoryType) return
+  try {
+    const res = await getCategoryBigList({ type: categoryApiType(form.categoryType) })
+    bigOptions.value = res.data || []
+  } catch (e) {
+    console.warn(e)
+    bigOptions.value = []
+  }
 }
 
-function sourceLabel(type) {
-  const hit = sourceOptions.find((o) => o.value === type)
-  return hit?.label || type || '--'
+async function onCategoryBigChange(bigId) {
+  form.smallIds = []
+  smallOptions.value = []
+  if (!bigId) return
+  try {
+    const res = await getCategorySmallList(bigId)
+    smallOptions.value = res.data || []
+  } catch (e) {
+    console.warn(e)
+    smallOptions.value = []
+  }
 }
 
 function buildDateFilter(op, start, range) {
@@ -323,10 +398,13 @@ function buildCriteria() {
     caseCodeMatch: form.caseCodeMatch,
     reportTime: buildDateFilter(form.reportTimeOp, form.reportTimeStart, form.reportTimeRange),
     closeTime: buildDateFilter(form.closeTimeOp, form.closeTimeStart, form.closeTimeRange),
-    sourceTypes: form.sourceTypes?.length ? form.sourceTypes : undefined,
+    caseOrigins: form.caseOrigins?.length ? form.caseOrigins : undefined,
     respGridIds: form.respGridIds?.length ? form.respGridIds : undefined,
-    caseStatuses: form.caseStatuses?.length ? form.caseStatuses : undefined,
+    caseStatuses: expandCaseStatusesForQuery(form.caseStatuses),
+    categoryType: form.categoryType || undefined,
     smallIds: form.smallIds?.length ? form.smallIds : undefined,
+    description: form.description?.trim() || undefined,
+    descriptionMatch: form.descriptionMatch,
     handleDeptId: form.handleDeptId || undefined,
     reporterId: form.reporterId || undefined,
     registerOperatorId: form.registerOperatorId || undefined,
@@ -343,6 +421,10 @@ function buildCriteria() {
   if (!criteria.address) {
     delete criteria.address
     delete criteria.addressMatch
+  }
+  if (!criteria.description) {
+    delete criteria.description
+    delete criteria.descriptionMatch
   }
   return criteria
 }
@@ -379,18 +461,6 @@ async function loadOptions() {
   } catch (e) {
     console.warn(e)
   }
-  const bigRes = await getCategoryBigList()
-  const bigs = bigRes.data || []
-  const allSmall = []
-  for (const b of bigs) {
-    try {
-      const r = await getCategorySmallList(b.id)
-      ;(r.data || []).forEach((s) => allSmall.push({ ...s, bigName: b.bigName }))
-    } catch (e) {
-      console.warn('加载小类失败', b.id, e)
-    }
-  }
-  smallOptions.value = allSmall
   await Promise.all([
     loadUsers(RoleCode.COLLECTOR, collectorOptions),
     loadUsers(RoleCode.ACCEPTOR, acceptorOptions),
@@ -421,6 +491,8 @@ function handleSearch() {
 
 function handleReset() {
   Object.assign(form, defaultForm())
+  bigOptions.value = []
+  smallOptions.value = []
   pageNum.value = 1
   caseList.value = []
   total.value = 0

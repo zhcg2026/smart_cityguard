@@ -33,6 +33,30 @@
       title="核实任务进行中（可选分支）：请等待采集员提交后再结案；如无需现场核实可直接结案。"
     />
     <el-alert
+      v-if="caseInfo.pendingDeptExtensionApply && canReviewDeptAdjustment"
+      class="view-only-hint"
+      type="info"
+      :closable="false"
+      show-icon
+    >
+      <template #title>
+        处置人员申请延期（待部门审核）：{{ caseInfo.pendingDeptExtensionApply.applicantName }} —
+        {{ caseInfo.pendingDeptExtensionApply.reason }}
+      </template>
+    </el-alert>
+    <el-alert
+      v-if="caseInfo.pendingDeptSuspendApply && canReviewDeptAdjustment"
+      class="view-only-hint"
+      type="info"
+      :closable="false"
+      show-icon
+    >
+      <template #title>
+        处置人员申请挂账（至 {{ formatAdjustmentDate(caseInfo.pendingDeptSuspendApply.suspendUntil) }}，待部门审核）：
+        {{ caseInfo.pendingDeptSuspendApply.applicantName }} — {{ caseInfo.pendingDeptSuspendApply.reason }}
+      </template>
+    </el-alert>
+    <el-alert
       v-if="caseInfo.pendingExtensionApply && canReviewPendingAdjustment"
       class="view-only-hint"
       type="warning"
@@ -40,7 +64,7 @@
       show-icon
     >
       <template #title>
-        待审批延期：{{ caseInfo.pendingExtensionApply.applicantName }} — {{ caseInfo.pendingExtensionApply.reason }}
+        待派遣员审批延期：{{ caseInfo.pendingExtensionApply.applicantName }} — {{ caseInfo.pendingExtensionApply.reason }}
       </template>
     </el-alert>
     <el-alert
@@ -51,16 +75,70 @@
       show-icon
     >
       <template #title>
-        待审批挂账（至 {{ formatAdjustmentDate(caseInfo.pendingSuspendApply.suspendUntil) }}）：
+        待派遣员审批挂账（至 {{ formatAdjustmentDate(caseInfo.pendingSuspendApply.suspendUntil) }}）：
         {{ caseInfo.pendingSuspendApply.applicantName }} — {{ caseInfo.pendingSuspendApply.reason }}
       </template>
     </el-alert>
+    <el-alert
+      v-if="rejectedExtensionNotice"
+      class="view-only-hint"
+      type="error"
+      :closable="false"
+      show-icon
+      :title="rejectedExtensionNotice"
+    />
+    <el-alert
+      v-if="rejectedSuspendNotice"
+      class="view-only-hint"
+      type="error"
+      :closable="false"
+      show-icon
+      :title="rejectedSuspendNotice"
+    />
+    <el-alert
+      v-if="handleOverdueAdjustmentHint"
+      class="view-only-hint"
+      type="warning"
+      :closable="false"
+      show-icon
+      :title="handleOverdueAdjustmentHint"
+    />
     <!-- 基本信息 -->
     <el-card class="info-card">
       <template #header>
         <div class="header-with-action">
           <span>案件基本信息</span>
           <div class="actions">
+            <el-button
+              v-if="canReviewDeptPendingExtension"
+              type="success"
+              @click="openDeptAdjustmentReview(caseInfo.pendingDeptExtensionApply, true)"
+            >
+              同意报送延期
+            </el-button>
+            <el-button
+              v-if="canReviewDeptPendingExtension"
+              type="danger"
+              plain
+              @click="openDeptAdjustmentReview(caseInfo.pendingDeptExtensionApply, false)"
+            >
+              部门驳回延期
+            </el-button>
+            <el-button
+              v-if="canReviewDeptPendingSuspend"
+              type="success"
+              @click="openDeptAdjustmentReview(caseInfo.pendingDeptSuspendApply, true)"
+            >
+              同意报送挂账
+            </el-button>
+            <el-button
+              v-if="canReviewDeptPendingSuspend"
+              type="danger"
+              plain
+              @click="openDeptAdjustmentReview(caseInfo.pendingDeptSuspendApply, false)"
+            >
+              部门驳回挂账
+            </el-button>
             <el-button
               v-if="canReviewPendingExtension"
               type="success"
@@ -128,7 +206,7 @@
         <el-descriptions-item label="立案条件">{{ caseInfo.conditionDesc || '--' }}</el-descriptions-item>
         <el-descriptions-item label="发生地址" :span="2">{{ caseInfo.address }}</el-descriptions-item>
         <el-descriptions-item label="坐标">{{ lngLatDisplay }}</el-descriptions-item>
-        <el-descriptions-item label="上报时间">{{ caseInfo.reportTime }}</el-descriptions-item>
+        <el-descriptions-item label="上报时间">{{ formatDateTime(caseInfo.reportTime) }}</el-descriptions-item>
         <el-descriptions-item label="上报人">{{ caseInfo.reporterName || '--' }}</el-descriptions-item>
         <el-descriptions-item label="责任片区">{{ respGridDisplay }}</el-descriptions-item>
         <el-descriptions-item
@@ -234,22 +312,59 @@
       <template #header>
         <span>现场照片/视频</span>
       </template>
-      <el-row :gutter="20">
-        <el-col v-for="item in attachments" :key="item.key" :span="6">
-          <div class="attachment-item-wrap">
-            <el-image
-              v-if="item.type === 'image'"
-              :src="item.url"
-              :preview-src-list="imageList"
-              fit="cover"
-              class="attachment-image"
-            />
-            <video v-else :src="item.url" class="attachment-video" controls />
-            <p v-if="item.label" class="attachment-caption">{{ item.label }}</p>
+      <template v-if="sceneSections.length">
+        <div
+          v-for="section in nonHandlePhotoSections"
+          :key="section.key"
+          class="attachment-section"
+        >
+          <h4 class="attachment-section-title">{{ section.title }}</h4>
+          <el-row :gutter="20">
+            <el-col v-for="item in section.items" :key="item.key" :span="6">
+              <div class="attachment-item-wrap">
+                <el-image
+                  v-if="item.type === 'image'"
+                  :src="item.url"
+                  :preview-src-list="[item.url]"
+                  fit="cover"
+                  class="attachment-image"
+                />
+                <video v-else :src="item.url" class="attachment-video" controls />
+                <p v-if="item.caption" class="attachment-caption">{{ item.caption }}</p>
+              </div>
+            </el-col>
+          </el-row>
+        </div>
+        <div v-if="handlePhotoBatchSections.length" class="attachment-section">
+          <h4 class="attachment-section-title">处置照片</h4>
+          <div class="handle-photo-scroll">
+            <div
+              v-for="section in handlePhotoBatchSections"
+              :key="section.key"
+              class="handle-photo-batch"
+            >
+              <p class="handle-photo-batch-time">{{ section.timeLabel }}</p>
+              <div class="handle-photo-batch-images">
+                <div
+                  v-for="item in section.items"
+                  :key="item.key"
+                  class="handle-photo-item"
+                >
+                  <el-image
+                    v-if="item.type === 'image'"
+                    :src="item.url"
+                    :preview-src-list="[item.url]"
+                    fit="cover"
+                    class="handle-photo-image"
+                  />
+                  <video v-else :src="item.url" class="handle-photo-video" controls />
+                </div>
+              </div>
+            </div>
           </div>
-        </el-col>
-      </el-row>
-      <el-empty v-if="attachments.length === 0" description="暂无附件" />
+        </div>
+      </template>
+      <el-empty v-else description="暂无附件" />
     </el-card>
 
     <!-- 流程记录 -->
@@ -259,16 +374,20 @@
       </template>
       <el-timeline>
         <el-timeline-item
-          v-for="item in flowRecords"
+          v-for="(item, index) in flowRecords"
           :key="item.id"
-          :timestamp="item.operateTime"
-          placement="top"
+          hide-timestamp
         >
-          <el-card>
-            <h4>{{ item.nodeName }}</h4>
-            <p>操作人：{{ item.operatorName }}</p>
-            <p v-if="item.operateOpinion">备注：{{ item.operateOpinion }}</p>
-          </el-card>
+          <div class="flow-record-row" :class="{ 'is-alt': index % 2 === 1 }">
+            <span class="flow-record-time">{{ formatDateTime(item.operateTime) }}</span>
+            <span class="flow-record-line">
+              <strong class="flow-record-node">{{ item.nodeName || '—' }}</strong>
+              <span class="flow-record-meta"> · 操作人：{{ item.operatorName || '—' }}</span>
+              <span v-if="item.operateOpinion?.trim()" class="flow-record-meta">
+                · 备注：{{ item.operateOpinion.trim() }}
+              </span>
+            </span>
+          </div>
         </el-timeline-item>
       </el-timeline>
       <el-empty v-if="flowRecords.length === 0" description="暂无流程记录" />
@@ -427,7 +546,11 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="adjustmentReviewVisible" :title="adjustmentReviewApproved ? '批准申请' : '驳回申请'" width="480px">
+    <el-dialog
+      v-model="adjustmentReviewVisible"
+      :title="adjustmentReviewDialogTitle"
+      width="480px"
+    >
       <p v-if="adjustmentReviewRow" class="adjustment-review-summary">
         {{ adjustmentReviewRow.applyTypeLabel || (adjustmentReviewRow.applyType === 'suspend' ? '挂账' : '延期') }}
         · 申请人 {{ adjustmentReviewRow.applicantName }}
@@ -440,8 +563,13 @@
         挂账截止日期：{{ formatAdjustmentDate(adjustmentReviewRow.suspendUntil) }}
       </p>
       <el-form label-width="80px">
-        <el-form-item :label="adjustmentReviewApproved ? '审批意见' : '驳回原因'" :required="!adjustmentReviewApproved">
-          <el-input v-model="adjustmentReviewRemark" type="textarea" :rows="3" placeholder="驳回时必填" />
+        <el-form-item :label="adjustmentReviewApproved ? '意见' : '驳回意见'" :required="!adjustmentReviewApproved">
+          <el-input
+            v-model="adjustmentReviewRemark"
+            type="textarea"
+            :rows="3"
+            :placeholder="adjustmentReviewMode === 'dept' ? '驳回时可说明替代方案，如：可调库存，无需延期' : '驳回时必填'"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -543,6 +671,7 @@ import {
   sendCheckTask,
   sendVerifyTask,
   applyCaseAdjustment,
+  deptReviewCaseAdjustment,
   getCaseAdjustmentList,
   reviewCaseAdjustment
 } from '@/api/case'
@@ -556,9 +685,15 @@ import { RoleCode } from '@/utils/roleAccess'
 import { formatCaseStatusLabel, getCaseStatusTagType } from '@/utils/caseStatus'
 import { formatDateTime } from '@/utils/dateFormat'
 import {
+  groupHandleAttachments,
+  handlePhotoSectionTitle,
+  isReportCaseAttachment
+} from '@/utils/caseAttachment'
+import {
   stageDeadlineLabel,
   stageRemainingLabel,
-  rowStageDeadline
+  rowStageDeadline,
+  isHandleStageOverdue
 } from '@/utils/caseTimer'
 
 const route = useRoute()
@@ -593,6 +728,8 @@ const adjustmentReviewSubmitting = ref(false)
 const adjustmentReviewApproved = ref(true)
 const adjustmentReviewRemark = ref('')
 const adjustmentReviewRow = ref(null)
+/** dept=部门初审 dispatch=派遣员终审 */
+const adjustmentReviewMode = ref('dispatch')
 const adjustmentForm = reactive({
   applyType: 'extension',
   reason: '',
@@ -608,7 +745,7 @@ const timeoutAppealForm = reactive({
 })
 
 const caseInfo = ref({})
-const attachments = ref([])
+const sceneSections = ref([])
 const flowRecords = ref([])
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -635,7 +772,19 @@ const processForm = reactive({
   attachments: []
 })
 
-const imageList = computed(() => attachments.value.filter(a => a.type === 'image').map(a => a.url))
+const handlePhotoBatchSections = computed(() =>
+  sceneSections.value.filter((s) => s.sectionType === 'handle-batch')
+)
+
+const nonHandlePhotoSections = computed(() =>
+  sceneSections.value.filter((s) => s.sectionType !== 'handle-batch')
+)
+
+function revokeSceneSections(sections) {
+  for (const section of sections || []) {
+    revokeBlobUrls(section.items.map((item) => item.url))
+  }
+}
 
 const lngLatDisplay = computed(() => {
   const lng = caseInfo.value.longitude
@@ -832,6 +981,13 @@ const adjustmentDialogTitle = computed(() =>
   adjustmentForm.applyType === 'suspend' ? '申请挂账' : '申请延期'
 )
 
+const adjustmentReviewDialogTitle = computed(() => {
+  if (adjustmentReviewMode.value === 'dept') {
+    return adjustmentReviewApproved.value ? '同意报送派遣员' : '部门驳回'
+  }
+  return adjustmentReviewApproved.value ? '批准申请' : '驳回申请'
+})
+
 const CLOSED_STATUSES = ['closed', 'forced_close']
 
 const canSubmitTimeoutAppeal = computed(() => {
@@ -868,15 +1024,70 @@ const canReviewPendingSuspend = computed(
   () => canReviewPendingAdjustment.value && !!caseInfo.value.pendingSuspendApply
 )
 
+const canReviewDeptAdjustment = computed(() => {
+  if (isAdminLike.value) return true
+  if (!hasRole(RoleCode.DEPT)) return false
+  const deptId = caseInfo.value.handleDeptId
+  return deptId != null && String(deptId) === String(userDeptId.value)
+})
+
+const canReviewDeptPendingExtension = computed(
+  () => canReviewDeptAdjustment.value && !!caseInfo.value.pendingDeptExtensionApply
+)
+
+const canReviewDeptPendingSuspend = computed(
+  () => canReviewDeptAdjustment.value && !!caseInfo.value.pendingDeptSuspendApply
+)
+
+function buildRejectedAdjustmentNotice(row, typeLabel) {
+  if (!row?.id || row.applyStatus !== 'rejected') return ''
+  const uid = currentUserId.value
+  if (!uid || String(row.applicantId) !== String(uid)) return ''
+  const stage = row.reviewerId ? '派遣员' : '处置部门'
+  const by = row.reviewerId ? row.reviewerName : row.deptReviewerName
+  const remark =
+    (row.reviewerId ? row.reviewRemark : row.deptReviewRemark) ||
+    row.reviewRemark ||
+    row.deptReviewRemark ||
+    '无说明'
+  const who = by ? `${stage}（${by}）` : stage
+  return `${typeLabel}申请未通过 · ${who}：${remark}`
+}
+
+const rejectedExtensionNotice = computed(() => {
+  if (caseInfo.value.hasPendingExtension) return ''
+  return buildRejectedAdjustmentNotice(caseInfo.value.lastRejectedExtensionApply, '延期')
+})
+
+const rejectedSuspendNotice = computed(() => {
+  if (caseInfo.value.hasPendingSuspend) return ''
+  return buildRejectedAdjustmentNotice(caseInfo.value.lastRejectedSuspendApply, '挂账')
+})
+
+const isHandleOverdue = computed(() => isHandleStageOverdue(caseInfo.value))
+
+const handleOverdueAdjustmentHint = computed(() => {
+  if (!isHandleOverdue.value) return ''
+  const st = caseInfo.value.caseStatus
+  if (st !== 'pending_handle' && st !== 'handling') return ''
+  return '案件处置已超时，不可申请延期/挂账'
+})
+
 const canApplyExtension = computed(() => {
   const st = caseInfo.value.caseStatus
   if (st !== 'pending_handle' && st !== 'handling') return false
+  if (isHandleOverdue.value) return false
   if (isCaseSuspended.value) return false
   if (caseInfo.value.hasPendingExtension) return false
   const count = caseInfo.value.extensionApprovedCount || 0
   if (count >= 2) return false
-  if (!hasRole(RoleCode.DEPT) && !isAdminLike.value) return false
   if (isAdminLike.value) return true
+  if (hasRole(RoleCode.HANDLER) && st === 'handling') {
+    const uid = currentUserId.value
+    const assignee = caseInfo.value.currentHandlerId
+    return uid != null && assignee != null && String(uid) === String(assignee)
+  }
+  if (!hasRole(RoleCode.DEPT)) return false
   const deptId = caseInfo.value.handleDeptId
   return deptId != null && String(deptId) === String(userDeptId.value)
 })
@@ -884,11 +1095,17 @@ const canApplyExtension = computed(() => {
 const canApplySuspend = computed(() => {
   const st = caseInfo.value.caseStatus
   if (st !== 'pending_handle' && st !== 'handling') return false
+  if (isHandleOverdue.value) return false
   if (isCaseSuspended.value) return false
   if (caseInfo.value.hasPendingSuspend) return false
   if (caseInfo.value.suspendEverApproved) return false
-  if (!hasRole(RoleCode.DEPT) && !isAdminLike.value) return false
   if (isAdminLike.value) return true
+  if (hasRole(RoleCode.HANDLER) && st === 'handling') {
+    const uid = currentUserId.value
+    const assignee = caseInfo.value.currentHandlerId
+    return uid != null && assignee != null && String(uid) === String(assignee)
+  }
+  if (!hasRole(RoleCode.DEPT)) return false
   const deptId = caseInfo.value.handleDeptId
   return deptId != null && String(deptId) === String(userDeptId.value)
 })
@@ -1065,12 +1282,12 @@ async function loadPageData(caseId) {
   if (caseId == null || caseId === '') {
     return
   }
-  revokeBlobUrls(attachments.value.map((a) => a.url))
+  revokeSceneSections(sceneSections.value)
   destroyCaseMap()
   dialogVisible.value = false
   currentAction.value = ''
   caseInfo.value = {}
-  attachments.value = []
+  sceneSections.value = []
   flowRecords.value = []
 
   await loadCaseDetail(caseId)
@@ -1116,7 +1333,7 @@ onActivated(async () => {
 onBeforeUnmount(() => {
   destroyCaseMap()
   destroySendTaskMap()
-  revokeBlobUrls(attachments.value.map((a) => a.url))
+  revokeSceneSections(sceneSections.value)
 })
 
 function destroyCaseMap() {
@@ -1537,6 +1754,16 @@ function formatAdjustmentDate(val) {
 
 function openAdjustmentReview(row, approved) {
   if (!row?.id) return
+  adjustmentReviewMode.value = 'dispatch'
+  adjustmentReviewRow.value = row
+  adjustmentReviewApproved.value = approved
+  adjustmentReviewRemark.value = ''
+  adjustmentReviewVisible.value = true
+}
+
+function openDeptAdjustmentReview(row, approved) {
+  if (!row?.id) return
+  adjustmentReviewMode.value = 'dept'
   adjustmentReviewRow.value = row
   adjustmentReviewApproved.value = approved
   adjustmentReviewRemark.value = ''
@@ -1545,17 +1772,23 @@ function openAdjustmentReview(row, approved) {
 
 async function submitAdjustmentReview() {
   if (!adjustmentReviewApproved.value && !adjustmentReviewRemark.value.trim()) {
-    ElMessage.warning('请填写驳回原因')
+    ElMessage.warning(adjustmentReviewMode.value === 'dept' ? '请填写驳回意见' : '请填写驳回原因')
     return
   }
   adjustmentReviewSubmitting.value = true
   try {
-    await reviewCaseAdjustment({
+    const payload = {
       applyId: adjustmentReviewRow.value.id,
       approved: adjustmentReviewApproved.value,
       reviewRemark: adjustmentReviewRemark.value
-    })
-    ElMessage.success(adjustmentReviewApproved.value ? '已批准' : '已驳回')
+    }
+    if (adjustmentReviewMode.value === 'dept') {
+      await deptReviewCaseAdjustment(payload)
+      ElMessage.success(adjustmentReviewApproved.value ? '已同意报送派遣员' : '已驳回（处置人员将收到通知）')
+    } else {
+      await reviewCaseAdjustment(payload)
+      ElMessage.success(adjustmentReviewApproved.value ? '已批准' : '已驳回')
+    }
     adjustmentReviewVisible.value = false
     await loadCaseDetail(caseInfo.value.id)
     await loadCaseFlowRecords(caseInfo.value.id)
@@ -1637,42 +1870,64 @@ async function buildScenePreviewItem(a, key, label) {
     type: isImage ? 'image' : 'video',
     url,
     filePath: rawPath,
-    label: label || ''
+    caption: label || ''
   }
 }
 
 async function loadSceneAttachments(id) {
-  revokeBlobUrls(attachments.value.map((a) => a.url))
-  const items = []
+  revokeSceneSections(sceneSections.value)
+  const sections = []
+
+  async function pushSection(key, title, rawList, extra = {}) {
+    const items = []
+    for (const a of rawList || []) {
+      const item = await buildScenePreviewItem(a, `${key}-${a.id}`, extra.caption || '')
+      if (item.url) items.push(item)
+    }
+    if (items.length) {
+      sections.push({ key, title, items, ...extra })
+    }
+  }
+
   try {
     const res = await getCaseAttachments(id)
-    for (const a of res.data || []) {
-      items.push(await buildScenePreviewItem(a, `case-${a.id}`, ''))
+    const caseAtts = res.data || []
+    const reportAtts = caseAtts.filter(isReportCaseAttachment)
+
+    await pushSection('report', '上报照片', reportAtts)
+
+    for (const batch of groupHandleAttachments(caseAtts)) {
+      await pushSection(
+        `handle-${batch.timeKey}`,
+        handlePhotoSectionTitle(batch.timeLabel),
+        batch.items,
+        {
+          sectionType: 'handle-batch',
+          timeLabel: batch.timeLabel
+        }
+      )
     }
   } catch (error) {
     console.error('获取案件附件失败:', error)
   }
+
   try {
     const chkRes = await getCheckTaskRecords(id)
-    for (const rec of chkRes.data || []) {
-      for (const a of rec.attachments || []) {
-        items.push(await buildScenePreviewItem(a, `chk-${rec.id}-${a.id}`, '核查照片'))
-      }
-    }
+    const chkAtts = (chkRes.data || []).flatMap((rec) => rec.attachments || [])
+    await pushSection('check', '核查照片', chkAtts)
   } catch (error) {
     console.error('获取核查照片失败:', error)
   }
+
   try {
     const vfyRes = await getVerifyTaskRecords(id)
-    for (const rec of vfyRes.data || []) {
-      for (const a of rec.attachments || []) {
-        items.push(await buildScenePreviewItem(a, `vfy-${rec.id}-${a.id}`, '核实照片'))
-      }
-    }
+    const vfyAtts = (vfyRes.data || []).flatMap((rec) => rec.attachments || [])
+    await pushSection('verify', '核实照片', vfyAtts)
   } catch (error) {
     console.error('获取核实照片失败:', error)
   }
-  attachments.value = items.filter((item) => item.url)
+
+  sceneSections.value = sections
 }
 
 async function loadCaseFlowRecords(id) {
@@ -2095,6 +2350,19 @@ async function submitProcess() {
   .attachment-card {
     margin-bottom: 20px;
 
+    .attachment-section + .attachment-section {
+      margin-top: 16px;
+      padding-top: 4px;
+      border-top: 1px solid var(--el-border-color-lighter);
+    }
+
+    .attachment-section-title {
+      margin: 0 0 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--el-text-color-primary);
+    }
+
     .attachment-item-wrap {
       margin-bottom: 8px;
     }
@@ -2112,9 +2380,94 @@ async function submitProcess() {
       height: 150px;
       object-fit: cover;
     }
+
+    .handle-photo-scroll {
+      display: flex;
+      gap: 16px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .handle-photo-batch {
+      flex: 0 0 auto;
+      width: 140px;
+    }
+
+    .handle-photo-batch-time {
+      margin: 0 0 8px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--el-text-color-secondary);
+      white-space: nowrap;
+    }
+
+    .handle-photo-batch-images {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .handle-photo-item {
+      width: 140px;
+    }
+
+    .handle-photo-image,
+    .handle-photo-video {
+      width: 140px;
+      height: 105px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
   }
 
   .flow-card {
+    :deep(.el-timeline-item__wrapper) {
+      top: 2px;
+      padding-bottom: 2px;
+    }
+
+    :deep(.el-timeline-item__node) {
+      width: 8px;
+      height: 8px;
+    }
+
+    .flow-record-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      background: var(--el-fill-color-blank);
+    }
+
+    .flow-record-row.is-alt {
+      background: var(--el-fill-color-light);
+    }
+
+    .flow-record-time {
+      flex: 0 0 152px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--el-text-color-secondary);
+      white-space: nowrap;
+    }
+
+    .flow-record-line {
+      flex: 1;
+      min-width: 0;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .flow-record-node {
+      font-weight: 600;
+      color: var(--el-text-color-primary);
+    }
+
+    .flow-record-meta {
+      color: var(--el-text-color-regular);
+    }
+
     .flow-image {
       width: 80px;
       height: 80px;

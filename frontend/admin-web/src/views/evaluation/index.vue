@@ -99,15 +99,15 @@
           </el-col>
           <el-col :xs="24" :sm="12" :lg="8">
             <el-form-item label="问题来源">
-              <el-select v-model="form.sourceTypes" multiple collapse-tags clearable placeholder="多选" style="width: 100%">
-                <el-option v-for="s in sourceOptions" :key="s.value" :label="s.label" :value="s.value" />
+              <el-select v-model="form.caseOrigins" multiple collapse-tags clearable placeholder="多选" style="width: 100%">
+                <el-option v-for="s in originOptions" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12" :lg="8">
             <el-form-item label="问题状态">
               <el-select v-model="form.caseStatuses" multiple collapse-tags clearable placeholder="多选" style="width: 100%">
-                <el-option v-for="(label, value) in statusOptions" :key="value" :label="label" :value="value" />
+                <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -166,11 +166,11 @@
         >
           <template #default="{ row }">
             <span
-              v-if="row.handleDeptId != null && row[col.prop] > 0"
+              v-if="canDrillCell(row, col.prop)"
               class="drill-link"
               @click="openDrill(row, col.metricKey, col.label)"
-            >{{ row[col.prop] }}</span>
-            <span v-else>{{ row[col.prop] ?? 0 }}</span>
+            >{{ cellCount(row, col.prop) }}</span>
+            <span v-else>{{ cellCount(row, col.prop) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="caseRatio" label="案件占比%" width="100" align="center" fixed="right">
@@ -227,7 +227,12 @@ import { ElMessage } from 'element-plus'
 import { getCaseReportStatistics, drillCaseReport } from '@/api/case'
 import { getDeptTree } from '@/api/system'
 import { formatDateTime } from '@/utils/dateFormat'
-import { formatCaseStatusLabel, getCaseStatusTagType, CASE_STATUS_LABELS } from '@/utils/caseStatus'
+import { formatCaseStatusLabel, getCaseStatusTagType } from '@/utils/caseStatus'
+import {
+  CASE_QUERY_STATUS_OPTIONS,
+  CASE_QUERY_ORIGIN_OPTIONS,
+  expandCaseStatusesForQuery
+} from '@/utils/caseQuery'
 
 const router = useRouter()
 
@@ -238,16 +243,8 @@ const dateOps = [
   { label: '介于', value: 'between' }
 ]
 
-const sourceOptions = [
-  { label: '采集员上报', value: 'collector' },
-  { label: '案件登记', value: 'register' },
-  { label: '领导批示', value: 'leader' },
-  { label: '部门批转', value: 'transfer' },
-  { label: '公众举报', value: 'public' },
-  { label: '视频上报', value: 'video' }
-]
-
-const statusOptions = CASE_STATUS_LABELS
+const originOptions = CASE_QUERY_ORIGIN_OPTIONS
+const statusOptions = CASE_QUERY_STATUS_OPTIONS
 
 const metricColumns = [
   { prop: 'registeredCount', label: '立案数', metricKey: 'registered' },
@@ -286,7 +283,7 @@ const defaultForm = () => ({
   closeTimeStart: '',
   closeTimeRange: [],
   handleDeptId: null,
-  sourceTypes: [],
+  caseOrigins: [],
   caseStatuses: [],
   address: '',
   addressMatch: 'contains',
@@ -299,7 +296,7 @@ const form = reactive(defaultForm())
 const tableRows = computed(() => {
   const list = [...statRows.value]
   if (totalRow.value) {
-    list.push({ ...totalRow.value, handleDeptId: null })
+    list.push({ ...totalRow.value, handleDeptId: null, isTotalRow: true })
   }
   return list
 })
@@ -311,7 +308,7 @@ const drillList = ref([])
 const drillTotal = ref(0)
 const drillPageNum = ref(1)
 const drillPageSize = ref(10)
-const drillContext = reactive({ metricKey: '', handleDeptId: null, deptName: '' })
+const drillContext = reactive({ metricKey: '', handleDeptId: null, drillAllDepts: false, deptName: '' })
 
 function buildDateFilter(op, start, range) {
   if (!op) return undefined
@@ -328,8 +325,8 @@ function buildCriteria(extra = {}) {
     reportTime: buildDateFilter(form.reportTimeOp, form.reportTimeStart, form.reportTimeRange),
     closeTime: buildDateFilter(form.closeTimeOp, form.closeTimeStart, form.closeTimeRange),
     deadlineTime: buildDateFilter(form.deadlineTimeOp, form.deadlineTimeStart, form.deadlineTimeRange),
-    sourceTypes: form.sourceTypes?.length ? form.sourceTypes : undefined,
-    caseStatuses: form.caseStatuses?.length ? form.caseStatuses : undefined,
+    caseOrigins: form.caseOrigins?.length ? form.caseOrigins : undefined,
+    caseStatuses: expandCaseStatusesForQuery(form.caseStatuses),
     handleDeptId: form.handleDeptId || undefined,
     address: form.address?.trim() || undefined,
     addressMatch: form.addressMatch,
@@ -390,12 +387,29 @@ function formatRatio(v) {
   return typeof v === 'number' ? v.toFixed(2) : String(v)
 }
 
+function cellCount(row, prop) {
+  const n = row?.[prop]
+  return n == null ? 0 : n
+}
+
+function isTotalRow(row) {
+  return row?.isTotalRow === true || row?.handleDeptName === '合计'
+}
+
+/** 统计表数字 > 0 时可反查（含各部门行与合计行） */
+function canDrillCell(row, prop) {
+  return cellCount(row, prop) > 0 && (row?.handleDeptId != null || isTotalRow(row))
+}
+
 function openDrill(row, metricKey, label) {
-  if (row.handleDeptId == null) return
+  const col = metricColumns.find((c) => c.metricKey === metricKey)
+  if (!col || !canDrillCell(row, col.prop)) return
+  const total = isTotalRow(row)
   drillContext.metricKey = metricKey
-  drillContext.handleDeptId = row.handleDeptId
-  drillContext.deptName = row.handleDeptName
-  drillTitle.value = `${row.handleDeptName} · ${label}（案件列表）`
+  drillContext.drillAllDepts = total
+  drillContext.handleDeptId = total ? null : row.handleDeptId
+  drillContext.deptName = total ? '合计' : row.handleDeptName
+  drillTitle.value = `${drillContext.deptName} · ${label}（案件列表）`
   drillPageNum.value = 1
   viewMode.value = 'drill'
   loadDrill()
@@ -413,14 +427,14 @@ function backToStatistics() {
 async function loadDrill() {
   drillLoading.value = true
   try {
-    const res = await drillCaseReport(
-      buildCriteria({
-        metricKey: drillContext.metricKey,
-        drillHandleDeptId: drillContext.handleDeptId,
-        pageNum: drillPageNum.value,
-        pageSize: drillPageSize.value
-      })
-    )
+    const drillCriteria = buildCriteria({
+      metricKey: drillContext.metricKey,
+      drillAllDepts: drillContext.drillAllDepts || undefined,
+      drillHandleDeptId: drillContext.drillAllDepts ? undefined : drillContext.handleDeptId ?? undefined,
+      pageNum: drillPageNum.value,
+      pageSize: drillPageSize.value
+    })
+    const res = await drillCaseReport(drillCriteria)
     const page = res.data || {}
     drillList.value = page.records || []
     drillTotal.value = page.total ?? 0

@@ -326,6 +326,12 @@ function fillReceiverFields(form, row) {
   }
 }
 
+/** 接口返回 ISO 时间，转为日期控件 value-format */
+function normalizePickerDatetime(value) {
+  if (value == null || value === '') return ''
+  return String(value).replace('T', ' ').slice(0, 19)
+}
+
 function buildReceiverIds(form) {
   if (form.receiverType === 'role') {
     return (form.receiverRoleCodes || []).join(',')
@@ -344,7 +350,7 @@ function openAnnouncementDialog(row) {
     announcementForm.content = row.content
     announcementForm.announcementType = row.announcementType || 'business'
     announcementForm.docNumber = row.docNumber || ''
-    announcementForm.expireTime = row.expireTime || ''
+    announcementForm.expireTime = normalizePickerDatetime(row.expireTime)
     announcementForm.isTop = row.isTop || 0
     fillReceiverFields(announcementForm, row)
   }
@@ -357,7 +363,7 @@ function openDailyTipDialog(row) {
     dailyTipForm.id = row.id
     dailyTipForm.title = row.title
     dailyTipForm.content = row.content
-    dailyTipForm.expireTime = row.expireTime || ''
+    dailyTipForm.expireTime = normalizePickerDatetime(row.expireTime)
     fillReceiverFields(dailyTipForm, row)
   }
   dailyTipDialogVisible.value = true

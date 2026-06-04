@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "案件延期挂账", description = "处置部门申请、派遣员审批")
+@Tag(name = "案件延期挂账", description = "处置人员→部门初审→派遣员终审；部门也可直接报送派遣员")
 @RestController
 @RequestMapping("/case/adjustment")
 @RequiredArgsConstructor
@@ -25,7 +25,7 @@ public class CaseAdjustmentController {
 
     private final CaseAdjustmentService caseAdjustmentService;
 
-    @Operation(summary = "处置部门提交延期/挂账申请")
+    @Operation(summary = "提交延期/挂账（HANDLER→部门初审；DEPT→直接报送派遣员）")
     @PostMapping("/apply")
     public Result<CaseAdjustmentApply> apply(@RequestBody CaseAdjustmentApplyRequest request) {
         LoginUser user = currentUser();
@@ -35,6 +35,19 @@ public class CaseAdjustmentController {
         String opName = displayName(user);
         return Result.success(caseAdjustmentService.apply(
                 request, user.getId(), opName, user.getRoles()));
+    }
+
+    @Operation(summary = "处置部门待审列表（处置人员发起的申请）")
+    @GetMapping("/pending-dept")
+    public Result<Page<CaseAdjustmentApply>> listPendingDept(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        LoginUser user = currentUser();
+        if (user == null || user.getId() == null) {
+            throw new BusinessException("未登录");
+        }
+        return Result.success(caseAdjustmentService.listPendingDept(
+                pageNum, pageSize, user.getId(), user.getRoles()));
     }
 
     @Operation(summary = "派遣员待审列表")
@@ -50,7 +63,19 @@ public class CaseAdjustmentController {
                 pageNum, pageSize, user.getId(), user.getRoles()));
     }
 
-    @Operation(summary = "派遣员审批延期/挂账")
+    @Operation(summary = "处置部门初审（同意报送派遣员 / 驳回）")
+    @PostMapping("/dept-review")
+    public Result<CaseAdjustmentApply> deptReview(@RequestBody CaseAdjustmentReviewRequest request) {
+        LoginUser user = currentUser();
+        if (user == null || user.getId() == null) {
+            throw new BusinessException("未登录");
+        }
+        String opName = displayName(user);
+        return Result.success(caseAdjustmentService.deptReview(
+                request, user.getId(), opName, user.getRoles()));
+    }
+
+    @Operation(summary = "派遣员终审延期/挂账")
     @PostMapping("/review")
     public Result<CaseAdjustmentApply> review(@RequestBody CaseAdjustmentReviewRequest request) {
         LoginUser user = currentUser();

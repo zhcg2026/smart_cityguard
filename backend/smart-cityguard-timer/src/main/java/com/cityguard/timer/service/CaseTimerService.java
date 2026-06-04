@@ -221,6 +221,44 @@ public class CaseTimerService {
         return timer != null && timer.getIsTimeout() != null && timer.getIsTimeout() == 1;
     }
 
+    /**
+     * 处置阶段是否已超时（进行中已超过 deadline，或计时记录已标记超时）。
+     * 用于延期/挂账申请准入：已超时不可再申请。
+     */
+    public boolean isHandleStageOverdue(Long caseId) {
+        if (caseId == null) {
+            return false;
+        }
+        CaseTimerRecord record = caseTimerRecordMapper.selectActiveByCaseAndStage(
+                caseId, TimerStageConstant.HANDLE);
+        if (record == null) {
+            record = caseTimerRecordMapper.selectLatestByCaseAndStage(caseId, TimerStageConstant.HANDLE);
+        }
+        if (record != null) {
+            if (TimerStatusConstant.RUNNING.equals(record.getTimerStatus())
+                    || TimerStatusConstant.PAUSED.equals(record.getTimerStatus())) {
+                return record.getDeadlineTime() != null
+                        && record.getDeadlineTime().isBefore(LocalDateTime.now());
+            }
+            return record.getIsTimeout() != null && record.getIsTimeout() == 1;
+        }
+        List<LocalDateTime> deadlines = jdbcTemplate.query(
+                """
+                SELECT deadline_time FROM case_info
+                WHERE id = ? AND is_deleted = 0
+                  AND case_status IN ('pending_handle', 'handling')
+                """,
+                (rs, rowNum) -> {
+                    var ts = rs.getTimestamp("deadline_time");
+                    return ts != null ? ts.toLocalDateTime() : null;
+                },
+                caseId);
+        if (deadlines.isEmpty() || deadlines.get(0) == null) {
+            return false;
+        }
+        return deadlines.get(0).isBefore(LocalDateTime.now());
+    }
+
     private boolean isHandleTimeoutExempt(Long caseId) {
         List<Integer> rows = jdbcTemplate.query(
                 "SELECT handle_timeout_exempt FROM case_info WHERE id = ? AND is_deleted = 0",

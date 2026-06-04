@@ -16,7 +16,8 @@ export const CASE_STATUS_LABELS = {
   pending_close: '待结案',
   returned: '部门回退',
   closed: '已结案',
-  forced_close: '强制结案',
+  /** 历史预留状态码，结案接口实际写入 closed；展示与已结案一致 */
+  forced_close: '已结案',
   not_accepted: '作废',
   cancelled: '作废'
 }

@@ -1,11 +1,17 @@
-/** 格式化接口返回的日期时间（LocalDateTime 序列化多为 ISO 或 yyyy-MM-dd HH:mm:ss） */
+/** 格式化接口返回的日期时间（ISO 的 T 转为空格，显示到秒） */
 export function formatDateTime(value) {
   if (value == null || value === '') {
     return '--'
   }
-  const s = String(value)
+  let s = String(value).trim()
   if (s.includes('T')) {
-    return s.slice(0, 16).replace('T', ' ')
+    s = s.replace('T', ' ')
   }
-  return s.length >= 16 ? s.slice(0, 16) : s
+  if (s.length >= 19) {
+    return s.slice(0, 19)
+  }
+  if (s.length >= 16) {
+    return s.slice(0, 16)
+  }
+  return s
 }

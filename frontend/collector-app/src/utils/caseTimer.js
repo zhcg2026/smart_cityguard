@@ -59,6 +59,16 @@ export function findHandleTimerStage(caseInfo) {
   return null
 }
 
+/** 待指派/处置中：处置阶段是否已超时（不可申请延期/挂账） */
+export function isHandleStageOverdue(caseInfo) {
+  if (!caseInfo) return false
+  const st = caseInfo.caseStatus
+  if (st !== 'pending_handle' && st !== 'handling') return false
+  const handleStage = findHandleTimerStage(caseInfo)
+  if (handleStage?.active && handleStage.timedOut) return true
+  return buildHandleTimerDisplay(caseInfo).overdue
+}
+
 export function buildHandleTimerDisplay(caseInfo) {
   const stage = findHandleTimerStage(caseInfo)
   const deadline = stage?.deadlineTime || rowStageDeadline(caseInfo)

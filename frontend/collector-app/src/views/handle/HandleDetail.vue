@@ -3,6 +3,22 @@
     <van-nav-bar title="案件处置" left-arrow @click-left="goBack" />
 
     <van-notice-bar
+      v-if="handlerDeptNoticeText"
+      wrapable
+      color="#1989fa"
+      background="#ecf9ff"
+      left-icon="info-o"
+      :text="handlerDeptNoticeText"
+    />
+
+    <van-notice-bar
+      v-if="pendingAdjustmentTip && (caseInfo.hasPendingExtension || caseInfo.hasPendingSuspend)"
+      color="#1989fa"
+      background="#ecf9ff"
+      :text="pendingAdjustmentTip"
+    />
+
+    <van-notice-bar
       v-if="handleTimer.show && caseInfo.caseStatus === 'handling'"
       wrapable
       :color="handleTimer.overdue ? '#ee0a24' : '#ed6a0c'"
@@ -47,12 +63,36 @@
             fit="cover"
             width="100%"
             height="80"
-            @click="previewImages(reportImages, idx)"
+            @click="previewSingleImage(url)"
           />
         </van-grid-item>
       </van-grid>
       <van-loading v-else-if="imagesLoading" class="img-loading" size="24px">加载照片中...</van-loading>
       <van-empty v-else description="暂无上报照片" image-size="60" />
+    </van-cell-group>
+
+    <van-cell-group v-if="handlePhotoBatches.length" title="处置照片" inset>
+      <div class="handle-photo-scroll">
+        <div
+          v-for="batch in handlePhotoBatches"
+          :key="batch.timeKey"
+          class="handle-photo-batch"
+        >
+          <p class="handle-photo-batch-time">{{ batch.timeLabel }}</p>
+          <div class="handle-photo-batch-images">
+            <van-image
+              v-for="(url, idx) in batch.images"
+              :key="batch.timeKey + '-' + idx"
+              :src="url"
+              fit="cover"
+              width="112"
+              height="84"
+              class="handle-photo-thumb"
+              @click="previewSingleImage(url)"
+            />
+          </div>
+        </div>
+      </div>
     </van-cell-group>
 
     <van-cell-group title="处置说明" inset>
@@ -76,6 +116,30 @@
         提交处置结果
       </van-button>
       <van-button
+        v-if="canApplyExtension"
+        round
+        block
+        plain
+        type="primary"
+        class="return-btn"
+        :loading="extensionSubmitting"
+        @click="openExtensionDialog('extension')"
+      >
+        申请延期
+      </van-button>
+      <van-button
+        v-if="canApplySuspend"
+        round
+        block
+        plain
+        type="primary"
+        class="return-btn"
+        :loading="extensionSubmitting"
+        @click="openExtensionDialog('suspend')"
+      >
+        申请挂账
+      </van-button>
+      <van-button
         round
         block
         plain
@@ -88,6 +152,41 @@
       </van-button>
     </div>
     <van-notice-bar v-else color="#ed6a0c" background="#fffbe8" text="该案件未指派给您，无法提交处置结果" />
+
+    <van-dialog
+      v-model:show="extensionDialogVisible"
+      :title="extensionDialogTitle"
+      show-cancel-button
+      :before-close="onExtensionDialogBeforeClose"
+    >
+      <van-field
+        v-model="extensionReason"
+        rows="3"
+        autosize
+        type="textarea"
+        maxlength="500"
+        placeholder="请说明原因（必填）"
+      />
+      <van-field
+        v-if="extensionApplyType === 'suspend'"
+        v-model="extensionSuspendUntil"
+        label="挂账截止"
+        placeholder="选择日期"
+        readonly
+        is-link
+        @click="showSuspendDatePicker = true"
+      />
+      <p class="extension-tip">{{ extensionDialogTip }}</p>
+    </van-dialog>
+    <van-popup v-model:show="showSuspendDatePicker" position="bottom">
+      <van-date-picker
+        title="挂账截止日期"
+        :min-date="suspendMinDate"
+        :max-date="suspendMaxDate"
+        @confirm="onSuspendDateConfirm"
+        @cancel="showSuspendDatePicker = false"
+      />
+    </van-popup>
 
     <van-dialog
       v-model:show="returnDialogVisible"
@@ -111,11 +210,18 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { showToast, showImagePreview, showLoadingToast, closeToast, showSuccessToast } from 'vant'
-import { getCaseDetail, getCaseAttachments, handleCase, handlerReturnDept, uploadFile } from '@/api/case'
+import {
+  getCaseDetail,
+  getCaseAttachments,
+  handleCase,
+  handlerReturnDept,
+  applyCaseAdjustment,
+  uploadFile
+} from '@/api/case'
 import { useUserStore } from '@/stores/user'
 import CaseLocationMap from '@/components/CaseLocationMap.vue'
 import { fetchFilePreviewBlobUrl, revokeBlobUrls } from '@/utils/fileUrl'
-import { buildHandleTimerDisplay } from '@/utils/caseTimer'
+import { buildHandleTimerDisplay, isHandleStageOverdue } from '@/utils/caseTimer'
 
 const router = useRouter()
 const route = useRoute()
@@ -123,6 +229,7 @@ const userStore = useUserStore()
 
 const caseInfo = ref({})
 const reportImages = ref([])
+const handlePhotoBatches = ref([])
 const imagesLoading = ref(false)
 const remark = ref('')
 const fileList = ref([])
@@ -131,6 +238,19 @@ const submitting = ref(false)
 const returning = ref(false)
 const returnDialogVisible = ref(false)
 const returnRemark = ref('')
+const extensionDialogVisible = ref(false)
+const extensionApplyType = ref('extension')
+const extensionReason = ref('')
+const extensionSuspendUntil = ref('')
+const extensionSubmitting = ref(false)
+const showSuspendDatePicker = ref(false)
+
+const suspendMinDate = new Date()
+const suspendMaxDate = (() => {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() + 1)
+  return d
+})()
 
 const handleTimer = computed(() => buildHandleTimerDisplay(caseInfo.value))
 
@@ -160,6 +280,56 @@ const canSubmit = computed(() => {
   return assignee != null && String(assignee) === String(uid)
 })
 
+const handlerDeptNoticeText = computed(() => {
+  if (caseInfo.value.pendingDeptExtensionApply || caseInfo.value.pendingDeptSuspendApply) {
+    return ''
+  }
+  const n = caseInfo.value.handlerDeptNotice
+  if (!n?.content?.trim()) return ''
+  const title = n.title || '部门提示'
+  return `${title}：${n.content.trim()}`
+})
+
+const pendingAdjustmentTip = computed(() => {
+  if (caseInfo.value.hasPendingExtension && caseInfo.value.hasPendingSuspend) {
+    return '延期/挂账申请待部门或派遣员审批，审批前请继续按原时限处置'
+  }
+  if (caseInfo.value.pendingDeptExtensionApply || caseInfo.value.pendingDeptSuspendApply) {
+    return '已提交至处置部门审核，部门同意后将报送派遣员审批'
+  }
+  return '申请审批中，审批前请继续按原时限处置'
+})
+
+const isHandleOverdue = computed(() => isHandleStageOverdue(caseInfo.value))
+
+const canApplyExtension = computed(() => {
+  if (!canSubmit.value) return false
+  if (isHandleOverdue.value) return false
+  if (caseInfo.value.isSuspended === 1) return false
+  if (caseInfo.value.hasPendingExtension) return false
+  const count = caseInfo.value.extensionApprovedCount || 0
+  return count < 2
+})
+
+const canApplySuspend = computed(() => {
+  if (!canSubmit.value) return false
+  if (isHandleOverdue.value) return false
+  if (caseInfo.value.isSuspended === 1) return false
+  if (caseInfo.value.hasPendingSuspend) return false
+  if (caseInfo.value.suspendEverApproved) return false
+  return true
+})
+
+const extensionDialogTitle = computed(() =>
+  extensionApplyType.value === 'suspend' ? '申请挂账' : '申请延期'
+)
+
+const extensionDialogTip = computed(() =>
+  extensionApplyType.value === 'suspend'
+    ? '提交至本部门审核；部门可驳回（如协调解决）或同意报送派遣员审批'
+    : '提交至本部门审核；部门同意后将报送派遣员，批准后在当前截止时间上延长一个处置时限'
+)
+
 function attachmentUrl(a) {
   return a.filePath || a.url || ''
 }
@@ -179,6 +349,62 @@ function isReportAttachment(a) {
   return code !== 'handle_finish'
 }
 
+function isPreviousHandleAttachment(a) {
+  return a.nodeCode === 'handle_finish'
+}
+
+function formatUploadTime(value) {
+  if (!value) return '—'
+  const s = String(value)
+  return s.length >= 19 ? s.slice(0, 19).replace('T', ' ') : s.replace('T', ' ')
+}
+
+function parseUploadTime(value) {
+  if (!value) return 0
+  const t = new Date(String(value).replace(' ', 'T')).getTime()
+  return Number.isNaN(t) ? 0 : t
+}
+
+/** 同一批上传（间隔 1 分钟内）归为一组 */
+function groupHandleAttachments(attachments) {
+  const list = (attachments || [])
+    .filter(isPreviousHandleAttachment)
+    .filter(isImageAttachment)
+    .sort((a, b) => parseUploadTime(a.createTime) - parseUploadTime(b.createTime))
+
+  const batches = []
+  for (const item of list) {
+    const t = parseUploadTime(item.createTime)
+    let batch = batches[batches.length - 1]
+    if (!batch || t - batch.endTime > 60000) {
+      batch = {
+        timeKey: `${t}-${item.id}`,
+        timeLabel: formatUploadTime(item.createTime),
+        endTime: t,
+        items: []
+      }
+      batches.push(batch)
+    } else {
+      batch.endTime = t
+    }
+    batch.items.push(item)
+  }
+  return batches
+}
+
+async function loadImagePreviewUrl(a) {
+  const raw = attachmentUrl(a)
+  if (!raw) return ''
+  try {
+    const displayUrl = await fetchFilePreviewBlobUrl(raw)
+    if (displayUrl) return displayUrl
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
+  } catch (e) {
+    console.warn('加载附件预览失败:', raw, e)
+  }
+  return ''
+}
+
 async function loadReportImages(attachments) {
   revokeBlobUrls(reportImages.value)
   reportImages.value = []
@@ -186,26 +412,46 @@ async function loadReportImages(attachments) {
   if (!list.length) return
 
   imagesLoading.value = true
-  const urls = []
   try {
+    const urls = []
     for (const a of list) {
-      const raw = attachmentUrl(a)
-      if (!raw) continue
-      try {
-        const displayUrl = await fetchFilePreviewBlobUrl(raw)
-        if (displayUrl) {
-          urls.push(displayUrl)
-        } else if (raw.startsWith('http://') || raw.startsWith('https://')) {
-          urls.push(raw)
-        }
-      } catch (e) {
-        console.warn('加载附件预览失败:', raw, e)
-      }
+      const url = await loadImagePreviewUrl(a)
+      if (url) urls.push(url)
     }
     reportImages.value = urls
   } finally {
     imagesLoading.value = false
   }
+}
+
+function revokeHandlePhotoBatches() {
+  for (const batch of handlePhotoBatches.value) {
+    revokeBlobUrls(batch.images)
+  }
+}
+
+async function loadHandlePhotoBatches(attachments) {
+  revokeHandlePhotoBatches()
+  handlePhotoBatches.value = []
+  if (caseInfo.value.caseStatus !== 'handling') return
+
+  const groups = groupHandleAttachments(attachments)
+  const batches = []
+  for (const group of groups) {
+    const images = []
+    for (const item of group.items) {
+      const url = await loadImagePreviewUrl(item)
+      if (url) images.push(url)
+    }
+    if (images.length) {
+      batches.push({
+        timeKey: group.timeKey,
+        timeLabel: group.timeLabel,
+        images
+      })
+    }
+  }
+  handlePhotoBatches.value = batches
 }
 
 async function loadDetail() {
@@ -216,14 +462,16 @@ async function loadDetail() {
       getCaseAttachments(id).catch(() => ({ data: [] }))
     ])
     caseInfo.value = detailRes.data || {}
-    await loadReportImages(attRes.data || [])
+    const attList = attRes.data || []
+    await Promise.all([loadReportImages(attList), loadHandlePhotoBatches(attList)])
   } catch {
     showToast('获取案件详情失败')
   }
 }
 
-function previewImages(urls, startPosition) {
-  showImagePreview({ images: urls, startPosition })
+function previewSingleImage(url) {
+  if (!url) return
+  showImagePreview({ images: [url], startPosition: 0 })
 }
 
 async function afterRead(file) {
@@ -271,6 +519,56 @@ async function submit() {
   }
 }
 
+function formatPickerDate(selectedValues) {
+  const [y, m, d] = selectedValues
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+function onSuspendDateConfirm({ selectedValues }) {
+  extensionSuspendUntil.value = formatPickerDate(selectedValues)
+  showSuspendDatePicker.value = false
+}
+
+function openExtensionDialog(type) {
+  extensionApplyType.value = type
+  extensionReason.value = ''
+  extensionSuspendUntil.value = ''
+  extensionDialogVisible.value = true
+}
+
+async function onExtensionDialogBeforeClose(action) {
+  if (action !== 'confirm') {
+    return true
+  }
+  const text = extensionReason.value?.trim()
+  if (!text) {
+    showToast('请填写申请原因')
+    return false
+  }
+  if (extensionApplyType.value === 'suspend' && !extensionSuspendUntil.value) {
+    showToast('请选择挂账截止日期')
+    return false
+  }
+  extensionSubmitting.value = true
+  try {
+    await applyCaseAdjustment({
+      caseId: Number(route.params.id),
+      applyType: extensionApplyType.value,
+      reason: text,
+      suspendUntil: extensionApplyType.value === 'suspend' ? extensionSuspendUntil.value : undefined
+    })
+    showSuccessToast('已提交至处置部门审核')
+    extensionDialogVisible.value = false
+    await loadDetail()
+    return true
+  } catch (e) {
+    showToast(e?.message || '申请失败')
+    return false
+  } finally {
+    extensionSubmitting.value = false
+  }
+}
+
 function openReturnDialog() {
   returnRemark.value = ''
   returnDialogVisible.value = true
@@ -312,6 +610,7 @@ onMounted(loadDetail)
 
 onBeforeUnmount(() => {
   revokeBlobUrls(reportImages.value)
+  revokeHandlePhotoBatches()
 })
 </script>
 
@@ -336,8 +635,48 @@ onBeforeUnmount(() => {
   margin-top: 12px;
 }
 
+.extension-tip {
+  margin: 0 16px 12px;
+  font-size: 12px;
+  color: #969799;
+  line-height: 1.5;
+}
+
 .text-overdue {
   color: #ee0a24;
   font-weight: 600;
+}
+
+.handle-photo-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 0 16px 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.handle-photo-batch {
+  flex: 0 0 auto;
+  width: 112px;
+}
+
+.handle-photo-batch-time {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #969799;
+  white-space: nowrap;
+}
+
+.handle-photo-batch-images {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.handle-photo-thumb {
+  display: block;
+  border-radius: 4px;
+  overflow: hidden;
 }
 </style>

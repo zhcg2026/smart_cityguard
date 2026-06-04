@@ -15,6 +15,11 @@ public interface CaseAdjustmentService {
 
     Page<CaseAdjustmentApply> listPending(Integer pageNum, Integer pageSize, Long operatorId, List<String> roles);
 
+    Page<CaseAdjustmentApply> listPendingDept(Integer pageNum, Integer pageSize, Long operatorId, List<String> roles);
+
+    CaseAdjustmentApply deptReview(CaseAdjustmentReviewRequest request, Long operatorId, String operatorName,
+                                   List<String> roles);
+
     CaseAdjustmentApply review(CaseAdjustmentReviewRequest request, Long operatorId, String operatorName,
                                List<String> roles);
 

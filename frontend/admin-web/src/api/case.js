@@ -312,12 +312,30 @@ export function getVerifyTaskRecords(caseId) {
   })
 }
 
-// 延期/挂账：处置部门申请
+// 延期/挂账申请
 export function applyCaseAdjustment(data) {
   return request({
     url: '/case/adjustment/apply',
     method: 'post',
     data
+  })
+}
+
+// 处置部门初审
+export function deptReviewCaseAdjustment(data) {
+  return request({
+    url: '/case/adjustment/dept-review',
+    method: 'post',
+    data
+  })
+}
+
+// 处置部门待审列表
+export function getCaseAdjustmentPendingDept(params) {
+  return request({
+    url: '/case/adjustment/pending-dept',
+    method: 'get',
+    params
   })
 }
 
