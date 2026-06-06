@@ -13,7 +13,7 @@ export const CASE_QUERY_STATUS_OPTIONS = [
   { value: 'pending_handle', label: '待指派' },
   { value: 'handling', label: '处置中' },
   { value: 'handle_finish', label: '处置人员已处置' },
-  { value: 'pending_check', label: '待核查' },
+  { value: 'pending_check', label: '待结案' },
   { value: 'checking', label: '核查中' },
   { value: 'check_pass', label: '核查通过' },
   { value: 'check_not_pass', label: '核查不通过' },

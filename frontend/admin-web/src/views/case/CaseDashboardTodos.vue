@@ -4,28 +4,29 @@
       <template #header>
         <span>全部待办</span>
       </template>
-      <el-table v-loading="loading" :data="todoList" style="width: 100%">
-        <el-table-column prop="type" label="类型" width="80">
+      <el-table v-loading="loading" :data="todoList" style="width: 100%" table-layout="fixed">
+        <el-table-column prop="type" label="类型" width="72" align="center">
           <template #default="{ row }">
             <el-tag :type="row.type === 'case' ? 'primary' : 'success'" size="small">
               {{ row.type === 'case' ? '案件' : '任务' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="title" label="标题" min-width="240" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="140">
+        <el-table-column prop="title" label="标题" min-width="320" show-overflow-tooltip />
+        <el-table-column prop="status" label="状态" width="156" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag :type="getTodoStatusType(row.status)" size="small">
               {{ row.status }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="截止时间" width="170">
+        <el-table-column label="阶段截止" min-width="188" show-overflow-tooltip>
           <template #default="{ row }">
+            <span v-if="row.timerStageName">{{ row.timerStageName }} </span>
             {{ formatDateTime(row.deadline) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
+        <el-table-column label="操作" width="72" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" link @click="handleTodo(row)">
               处理

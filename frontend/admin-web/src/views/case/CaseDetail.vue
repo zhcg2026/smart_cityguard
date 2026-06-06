@@ -298,11 +298,52 @@
       </el-descriptions>
     </el-card>
 
+    <!-- 采集员核查/核实反馈（结案前可选支线） -->
+    <el-card v-if="completedCheckRecords.length || completedVerifyRecords.length" class="task-feedback-card">
+      <template #header>
+        <span>采集员反馈</span>
+      </template>
+      <div
+        v-for="rec in completedCheckRecords"
+        :key="`check-${rec.id}`"
+        class="task-feedback-block"
+      >
+        <div class="task-feedback-head">核查 · {{ rec.taskCode || rec.id }}</div>
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="核查人">{{ rec.collectorName || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="完成时间">{{ formatDateTime(rec.finishTime) }}</el-descriptions-item>
+          <el-descriptions-item label="核查结果">{{ rec.checkResultLabel || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="核查意见" :span="2">{{ rec.checkOpinion?.trim() || '—' }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+      <div
+        v-for="rec in completedVerifyRecords"
+        :key="`verify-${rec.id}`"
+        class="task-feedback-block"
+      >
+        <div class="task-feedback-head">核实 · {{ rec.taskCode || rec.id }}</div>
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="核实人">{{ rec.collectorName || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="完成时间">{{ formatDateTime(rec.finishTime) }}</el-descriptions-item>
+          <el-descriptions-item label="核实结果">{{ rec.verifyResultLabel || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="核实意见" :span="2">{{ rec.verifyOpinion?.trim() || '—' }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+    </el-card>
+
     <!-- 地图定位 -->
     <el-card class="map-card">
       <template #header>
         <span>地图定位</span>
       </template>
+      <el-alert
+        v-if="mapInitFailed"
+        type="warning"
+        :closable="false"
+        show-icon
+        title="地图加载失败，请检查网络或刷新页面；若持续失败请核对高德 Key 与安全密钥"
+        class="map-load-alert"
+      />
       <div ref="mapContainerRef" class="map-container" />
       <el-empty v-if="!hasMapCoords" description="暂无坐标，无法展示地图" />
     </el-card>
@@ -312,55 +353,23 @@
       <template #header>
         <span>现场照片/视频</span>
       </template>
-      <template v-if="sceneSections.length">
-        <div
-          v-for="section in nonHandlePhotoSections"
-          :key="section.key"
-          class="attachment-section"
-        >
-          <h4 class="attachment-section-title">{{ section.title }}</h4>
-          <el-row :gutter="20">
-            <el-col v-for="item in section.items" :key="item.key" :span="6">
-              <div class="attachment-item-wrap">
-                <el-image
-                  v-if="item.type === 'image'"
-                  :src="item.url"
-                  :preview-src-list="[item.url]"
-                  fit="cover"
-                  class="attachment-image"
-                />
-                <video v-else :src="item.url" class="attachment-video" controls />
-                <p v-if="item.caption" class="attachment-caption">{{ item.caption }}</p>
-              </div>
-            </el-col>
-          </el-row>
-        </div>
-        <div v-if="handlePhotoBatchSections.length" class="attachment-section">
-          <h4 class="attachment-section-title">处置照片</h4>
-          <div class="handle-photo-scroll">
-            <div
-              v-for="section in handlePhotoBatchSections"
-              :key="section.key"
-              class="handle-photo-batch"
-            >
-              <p class="handle-photo-batch-time">{{ section.timeLabel }}</p>
-              <div class="handle-photo-batch-images">
-                <div
-                  v-for="item in section.items"
-                  :key="item.key"
-                  class="handle-photo-item"
-                >
-                  <el-image
-                    v-if="item.type === 'image'"
-                    :src="item.url"
-                    :preview-src-list="[item.url]"
-                    fit="cover"
-                    class="handle-photo-image"
-                  />
-                  <video v-else :src="item.url" class="handle-photo-video" controls />
-                </div>
-              </div>
-            </div>
+      <template v-if="scenePhotoGallery.length">
+        <div class="scene-photo-scroll">
+          <div
+            v-for="item in scenePhotoGallery"
+            :key="item.key"
+            class="scene-photo-item"
+          >
+            <p class="scene-photo-group">{{ item.groupLabel }}</p>
+            <el-image
+              v-if="item.type === 'image'"
+              :src="item.url"
+              :preview-src-list="[item.url]"
+              fit="cover"
+              class="scene-photo-image"
+            />
+            <video v-else :src="item.url" class="scene-photo-video" controls />
+            <p v-if="item.caption" class="scene-photo-caption">{{ item.caption }}</p>
           </div>
         </div>
       </template>
@@ -383,6 +392,9 @@
             <span class="flow-record-line">
               <strong class="flow-record-node">{{ item.nodeName || '—' }}</strong>
               <span class="flow-record-meta"> · 操作人：{{ item.operatorName || '—' }}</span>
+              <span v-if="formatFlowReceiver(item)" class="flow-record-meta">
+                · 接收人：{{ formatFlowReceiver(item) }}
+              </span>
               <span v-if="item.operateOpinion?.trim()" class="flow-record-meta">
                 · 备注：{{ item.operateOpinion.trim() }}
               </span>
@@ -684,6 +696,7 @@ import { useUserStore } from '@/stores/user'
 import { RoleCode } from '@/utils/roleAccess'
 import { formatCaseStatusLabel, getCaseStatusTagType } from '@/utils/caseStatus'
 import { formatDateTime } from '@/utils/dateFormat'
+import { waitForElementSize, waitForGlobalAmap } from '@/utils/mapUtil'
 import {
   groupHandleAttachments,
   handlePhotoSectionTitle,
@@ -704,6 +717,7 @@ const userStore = useUserStore()
 const acceptorQueueMode = computed(() => route.query.acceptorMode || '')
 
 const mapContainerRef = ref(null)
+const mapInitFailed = ref(false)
 const sendTaskMapRef = ref(null)
 let caseMap = null
 let caseMarker = null
@@ -747,6 +761,8 @@ const timeoutAppealForm = reactive({
 const caseInfo = ref({})
 const sceneSections = ref([])
 const flowRecords = ref([])
+const checkTaskRecords = ref([])
+const verifyTaskRecords = ref([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
@@ -772,13 +788,55 @@ const processForm = reactive({
   attachments: []
 })
 
-const handlePhotoBatchSections = computed(() =>
-  sceneSections.value.filter((s) => s.sectionType === 'handle-batch')
+function sceneSectionGroupLabel(section) {
+  if (section.key === 'report') return '上报'
+  if (section.sectionType === 'handle-batch') return '处置'
+  if (section.key === 'check') return '核查'
+  if (section.key === 'verify') return '核实'
+  return (section.title || '照片').replace(/照片$/, '')
+}
+
+const scenePhotoGallery = computed(() => {
+  const gallery = []
+  for (const section of sceneSections.value) {
+    const groupLabel = sceneSectionGroupLabel(section)
+    for (const item of section.items || []) {
+      const captionParts = []
+      if (section.sectionType === 'handle-batch' && section.timeLabel) {
+        captionParts.push(section.timeLabel)
+      }
+      if (item.caption?.trim()) {
+        captionParts.push(item.caption.trim())
+      }
+      gallery.push({
+        ...item,
+        groupLabel,
+        caption: captionParts.length ? captionParts.join(' · ') : ''
+      })
+    }
+  }
+  return gallery
+})
+
+const completedCheckRecords = computed(() =>
+  [...checkTaskRecords.value]
+    .filter((r) => r.taskStatus === 'done')
+    .sort((a, b) => String(b.finishTime || '').localeCompare(String(a.finishTime || '')))
 )
 
-const nonHandlePhotoSections = computed(() =>
-  sceneSections.value.filter((s) => s.sectionType !== 'handle-batch')
+const completedVerifyRecords = computed(() =>
+  [...verifyTaskRecords.value]
+    .filter((r) => r.taskStatus === 'done')
+    .sort((a, b) => String(b.finishTime || '').localeCompare(String(a.finishTime || '')))
 )
+
+function formatFlowReceiver(item) {
+  if (!item) return ''
+  const name = item.receiverName?.trim()
+  const dept = item.receiverDeptName?.trim()
+  if (name && dept && name !== dept) return `${name}（${dept}）`
+  return name || dept || ''
+}
 
 function revokeSceneSections(sections) {
   for (const section of sections || []) {
@@ -1289,8 +1347,11 @@ async function loadPageData(caseId) {
   caseInfo.value = {}
   sceneSections.value = []
   flowRecords.value = []
+  checkTaskRecords.value = []
+  verifyTaskRecords.value = []
 
   await loadCaseDetail(caseId)
+  await loadTaskFeedbackRecords(caseId)
   await loadSceneAttachments(caseId)
   await loadCaseFlowRecords(caseId)
   await initCaseMap()
@@ -1352,10 +1413,22 @@ function destroyCaseMap() {
 }
 
 async function initCaseMap() {
-  await nextTick()
+  mapInitFailed.value = false
   await nextTick()
   const el = mapContainerRef.value
-  if (!el || typeof window.AMap === 'undefined') {
+  if (!el) {
+    return
+  }
+  const amapReady = await waitForGlobalAmap()
+  if (!amapReady) {
+    mapInitFailed.value = true
+    console.error('高德地图脚本未加载（window.AMap 不可用）')
+    return
+  }
+  const sized = await waitForElementSize(el)
+  if (!sized) {
+    mapInitFailed.value = true
+    console.error('地图容器尺寸未就绪')
     return
   }
   destroyCaseMap()
@@ -1376,6 +1449,7 @@ async function initCaseMap() {
       caseMap?.resize()
     })
   } catch (e) {
+    mapInitFailed.value = true
     console.error('初始化地图失败:', e)
   }
 }
@@ -1590,6 +1664,8 @@ async function submitSendTask() {
     }
     sendTaskDialogVisible.value = false
     await loadCaseDetail(caseId)
+    await loadTaskFeedbackRecords(caseId)
+    await loadSceneAttachments(caseId)
     await loadCaseFlowRecords(caseId)
   } catch (e) {
     console.error(e)
@@ -1874,6 +1950,21 @@ async function buildScenePreviewItem(a, key, label) {
   }
 }
 
+async function loadTaskFeedbackRecords(id) {
+  try {
+    const [chkRes, vfyRes] = await Promise.all([
+      getCheckTaskRecords(id),
+      getVerifyTaskRecords(id)
+    ])
+    checkTaskRecords.value = chkRes.data || []
+    verifyTaskRecords.value = vfyRes.data || []
+  } catch (error) {
+    console.error('获取核查/核实记录失败:', error)
+    checkTaskRecords.value = []
+    verifyTaskRecords.value = []
+  }
+}
+
 async function loadSceneAttachments(id) {
   revokeSceneSections(sceneSections.value)
   const sections = []
@@ -1881,7 +1972,7 @@ async function loadSceneAttachments(id) {
   async function pushSection(key, title, rawList, extra = {}) {
     const items = []
     for (const a of rawList || []) {
-      const item = await buildScenePreviewItem(a, `${key}-${a.id}`, extra.caption || '')
+      const item = await buildScenePreviewItem(a, `${key}-${a.id}`, a.caption || extra.caption || '')
       if (item.url) items.push(item)
     }
     if (items.length) {
@@ -1912,16 +2003,24 @@ async function loadSceneAttachments(id) {
   }
 
   try {
-    const chkRes = await getCheckTaskRecords(id)
-    const chkAtts = (chkRes.data || []).flatMap((rec) => rec.attachments || [])
+    const chkAtts = checkTaskRecords.value.flatMap((rec) =>
+      (rec.attachments || []).map((a) => ({
+        ...a,
+        caption: [rec.checkResultLabel, rec.checkOpinion?.trim()].filter(Boolean).join(' · ')
+      }))
+    )
     await pushSection('check', '核查照片', chkAtts)
   } catch (error) {
     console.error('获取核查照片失败:', error)
   }
 
   try {
-    const vfyRes = await getVerifyTaskRecords(id)
-    const vfyAtts = (vfyRes.data || []).flatMap((rec) => rec.attachments || [])
+    const vfyAtts = verifyTaskRecords.value.flatMap((rec) =>
+      (rec.attachments || []).map((a) => ({
+        ...a,
+        caption: [rec.verifyResultLabel, rec.verifyOpinion?.trim()].filter(Boolean).join(' · ')
+      }))
+    )
     await pushSection('verify', '核实照片', vfyAtts)
   } catch (error) {
     console.error('获取核实照片失败:', error)
@@ -2266,6 +2365,7 @@ async function submitProcess() {
     ElMessage.success(msgMap[action] || '操作成功')
     dialogVisible.value = false
     await loadCaseDetail(cid)
+    await loadTaskFeedbackRecords(cid)
     await loadCaseFlowRecords(cid)
     await loadSceneAttachments(cid)
   } catch (error) {
@@ -2337,8 +2437,29 @@ async function submitProcess() {
     }
   }
 
+  .task-feedback-card {
+    margin-bottom: 20px;
+
+    .task-feedback-block + .task-feedback-block {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--el-border-color-lighter);
+    }
+
+    .task-feedback-head {
+      margin-bottom: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--el-text-color-primary);
+    }
+  }
+
   .map-card {
     margin-bottom: 20px;
+
+    .map-load-alert {
+      margin-bottom: 12px;
+    }
 
     .map-container {
       width: 100%;
@@ -2350,73 +2471,42 @@ async function submitProcess() {
   .attachment-card {
     margin-bottom: 20px;
 
-    .attachment-section + .attachment-section {
-      margin-top: 16px;
-      padding-top: 4px;
-      border-top: 1px solid var(--el-border-color-lighter);
+    .scene-photo-scroll {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 6px;
     }
 
-    .attachment-section-title {
-      margin: 0 0 12px;
-      font-size: 14px;
+    .scene-photo-item {
+      flex: 0 0 auto;
+      width: 132px;
+    }
+
+    .scene-photo-group {
+      margin: 0 0 6px;
+      font-size: 12px;
       font-weight: 600;
       color: var(--el-text-color-primary);
+      line-height: 1.3;
     }
 
-    .attachment-item-wrap {
-      margin-bottom: 8px;
-    }
-
-    .attachment-caption {
-      margin: 6px 0 0;
-      font-size: 12px;
-      color: var(--el-text-color-secondary);
-      text-align: center;
-      line-height: 1.4;
-    }
-
-    .attachment-image, .attachment-video {
-      width: 100%;
-      height: 150px;
-      object-fit: cover;
-    }
-
-    .handle-photo-scroll {
-      display: flex;
-      gap: 16px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-    }
-
-    .handle-photo-batch {
-      flex: 0 0 auto;
-      width: 140px;
-    }
-
-    .handle-photo-batch-time {
-      margin: 0 0 8px;
-      font-size: 12px;
-      line-height: 1.4;
-      color: var(--el-text-color-secondary);
-      white-space: nowrap;
-    }
-
-    .handle-photo-batch-images {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .handle-photo-item {
-      width: 140px;
-    }
-
-    .handle-photo-image,
-    .handle-photo-video {
-      width: 140px;
-      height: 105px;
+    .scene-photo-image,
+    .scene-photo-video {
+      width: 132px;
+      height: 99px;
       object-fit: cover;
       border-radius: 4px;
+      display: block;
+    }
+
+    .scene-photo-caption {
+      margin: 6px 0 0;
+      font-size: 11px;
+      line-height: 1.35;
+      color: var(--el-text-color-secondary);
+      word-break: break-all;
     }
   }
 

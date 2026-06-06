@@ -9,7 +9,7 @@ export const CASE_STATUS_LABELS = {
   pending_handle: '待指派',
   handling: '处置中',
   handle_finish: '处置人员已处置',
-  pending_check: '待核查',
+  pending_check: '待结案',
   checking: '核查中',
   check_pass: '核查通过',
   check_not_pass: '核查不通过',
@@ -44,8 +44,8 @@ export function normalizeCaseStatus(status) {
 }
 
 /**
- * @param {string|object} statusOrRow 状态码或案件行对象
- * @param {{ detail?: boolean }} options detail 为 true 时核查中使用「核查中（可选）」
+ * @param {string|object} statusOrRow 状态码或案件行（含 pendingVerifyTask / pendingCheckTask 等）
+ * @param {{ detail?: boolean }} options detail 为 true 时支线任务带「（可选）」后缀
  */
 export function formatCaseStatusLabel(statusOrRow, options = {}) {
   let row = null
@@ -58,12 +58,21 @@ export function formatCaseStatusLabel(statusOrRow, options = {}) {
   if (row?.awaitingDispatcherForward) return '待派遣员把关'
   const code = normalizeCaseStatus(status)
   if (!code) return '--'
-  if (code === 'checking' && options.detail) {
-    return '核查中（可选）'
+
+  if (row?.pendingVerifyTask) {
+    return options.detail ? '核实中（可选）' : '核实中'
   }
-  if (code === 'pending_check' && options.detail) {
-    return '待结案'
+  if (row?.pendingCheckTask || code === 'checking') {
+    return options.detail ? '核查中（可选）' : '核查中'
   }
+
+  if (code === 'pending_check') {
+    if (row?.currentHandlerId != null) {
+      return '待结案'
+    }
+    return '待批转受理员'
+  }
+
   return CASE_STATUS_LABELS[code] || status || '--'
 }
 

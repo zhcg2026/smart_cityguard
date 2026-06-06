@@ -41,6 +41,9 @@ export function useMessagePoll() {
         hasNew = true
         showNotify({
           type: 'primary',
+          background: '#1989fa',
+          color: '#fff',
+          className: 'collector-push-notify',
           message: `${msg.msgTitle || '新消息'}\n${msg.msgContent || ''}`,
           duration: 5000,
           onClick: () => {

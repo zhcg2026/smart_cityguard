@@ -23,7 +23,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { showToast } from 'vant'
-import { loadAmapScript, DEFAULT_MAP_CENTER } from '@/utils/amapLoader'
+import { loadAmapScript, DEFAULT_MAP_CENTER, waitForElementSize } from '@/utils/amapLoader'
 
 const props = defineProps({
   longitude: { type: [Number, String], default: null },
@@ -34,6 +34,9 @@ const props = defineProps({
 const mapBoxRef = ref(null)
 let mapInst = null
 let markerInst = null
+let initRetryTimer = null
+let initRetryCount = 0
+const MAX_INIT_RETRY = 8
 
 const amapKeyConfigured = computed(() => Boolean(import.meta.env.VITE_AMAP_KEY))
 
@@ -76,9 +79,17 @@ async function initMap() {
   }
   await nextTick()
   const el = mapBoxRef.value
-  if (!el || el.offsetHeight < 10) {
+  if (!el) return
+  const sized = await waitForElementSize(el)
+  if (!sized) {
+    if (initRetryCount < MAX_INIT_RETRY) {
+      initRetryCount += 1
+      clearTimeout(initRetryTimer)
+      initRetryTimer = window.setTimeout(() => initMap(), 120)
+    }
     return
   }
+  initRetryCount = 0
 
   let AMap
   try {
@@ -124,7 +135,10 @@ watch(
   { immediate: true }
 )
 
-onBeforeUnmount(destroyMap)
+onBeforeUnmount(() => {
+  clearTimeout(initRetryTimer)
+  destroyMap()
+})
 </script>
 
 <style scoped>

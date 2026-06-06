@@ -24,7 +24,7 @@
             <el-option label="待指派" value="pending_handle" />
             <el-option label="处置中" value="handling" />
             <el-option label="处置人员已处置" value="handle_finish" />
-            <el-option label="待核查" value="pending_check" />
+            <el-option label="待结案" value="pending_check" />
             <el-option label="已结案" value="closed" />
             <el-option label="部门回退" value="returned" />
             <el-option label="作废" value="not_accepted" />
@@ -84,7 +84,7 @@
         <el-table-column prop="caseStatus" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getCaseStatusTagType(row.caseStatus)">
-              {{ formatCaseStatusLabel(row.caseStatus) }}
+              {{ formatCaseStatusLabel(row) }}
             </el-tag>
           </template>
         </el-table-column>

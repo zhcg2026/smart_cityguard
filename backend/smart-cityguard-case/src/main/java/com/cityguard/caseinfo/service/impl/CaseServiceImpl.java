@@ -187,7 +187,11 @@ public class CaseServiceImpl implements CaseService {
         }
 
         // 记录流程
-        saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), CaseStatusConstant.PENDING_REGISTER, "问题上报", "采集员上报（待立案）");
+        long reporterId = caseInfo.getReporterId() != null ? caseInfo.getReporterId() : 1L;
+        String reporterName = caseInfo.getReporterName() != null && !caseInfo.getReporterName().isBlank()
+                ? caseInfo.getReporterName() : "采集员";
+        saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), CaseStatusConstant.PENDING_REGISTER, "问题上报",
+                "采集员上报（待立案）", reporterId, reporterName, null, "受理员");
 
         caseTimerService.onCaseReported(caseInfo.getId(), caseInfo.getCaseCode(), caseInfo.getReportTime());
 
@@ -249,7 +253,10 @@ public class CaseServiceImpl implements CaseService {
         List<String> attachmentUrls = req.getAttachments();
         if (attachmentUrls != null && !attachmentUrls.isEmpty()) {
             long uploaderId = operatorId != null ? operatorId : 1L;
-            String uploaderName = operatorName != null && !operatorName.isBlank() ? operatorName : "受理员";
+            String uploaderName = resolveOperatorName(operatorId);
+            if ("系统".equals(uploaderName)) {
+                uploaderName = "受理员";
+            }
             for (String url : attachmentUrls) {
                 if (url == null || url.isBlank()) {
                     continue;
@@ -270,7 +277,7 @@ public class CaseServiceImpl implements CaseService {
                 ? req.getRemark().trim()
                 : "受理员人工登记";
         saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), CaseStatusConstant.PENDING_REGISTER,
-                "案件登记", opinion, operatorId, operatorName);
+                "案件登记", opinion, operatorId, operatorName, null, "受理员");
 
         caseTimerService.onCaseReported(caseInfo.getId(), caseInfo.getCaseCode(), caseInfo.getReportTime());
         notifyAllAcceptorsNewCase(caseInfo);
@@ -307,6 +314,7 @@ public class CaseServiceImpl implements CaseService {
         }
         enrichCaseGeoDisplay(caseInfo);
         enrichHandleDeptDisplay(caseInfo);
+        enrichCaseOperatorDisplay(caseInfo);
         caseInfo.setAwaitingDeptConfirm(isAwaitingDeptConfirm(caseInfo));
         caseInfo.setAwaitingDispatcherForward(isAwaitingDispatcherForward(caseInfo));
         caseInfo.setPendingCheckTask(taskService.hasPendingCheckTask(id));
@@ -576,6 +584,7 @@ public class CaseServiceImpl implements CaseService {
         wrapper.orderByDesc(CaseInfo::getReportTime);
 
         Page<CaseInfo> pageResult = caseInfoMapper.selectPage(page, wrapper);
+        enrichCaseListDisplay(pageResult.getRecords());
         applyTimerDisplayList(pageResult.getRecords());
         return pageResult;
     }
@@ -593,6 +602,7 @@ public class CaseServiceImpl implements CaseService {
         applyCaseQueryCriteria(wrapper, q);
         wrapper.orderByDesc(CaseInfo::getReportTime);
         Page<CaseInfo> pageResult = caseInfoMapper.selectPage(page, wrapper);
+        enrichCaseListDisplay(pageResult.getRecords());
         applyTimerDisplayList(pageResult.getRecords());
         for (CaseInfo row : pageResult.getRecords()) {
             enrichCaseGeoDisplay(row);
@@ -706,10 +716,7 @@ public class CaseServiceImpl implements CaseService {
         }
         wrapper.orderByDesc(CaseInfo::getReportTime);
         Page<CaseInfo> result = caseInfoMapper.selectPage(page, wrapper);
-        for (CaseInfo record : result.getRecords()) {
-            record.setAwaitingDeptConfirm(isAwaitingDeptConfirm(record));
-            record.setAwaitingDispatcherForward(isAwaitingDispatcherForward(record));
-        }
+        enrichCaseListDisplay(result.getRecords());
         applyTimerDisplayList(result.getRecords());
         return result;
     }
@@ -729,6 +736,7 @@ public class CaseServiceImpl implements CaseService {
     public CaseDashboardTodosDto getDashboardTodos(Long userId, List<String> roles, int limit) {
         int cap = limit <= 0 ? 10 : Math.min(limit, 30);
         List<CaseInfo> merged = collectMergedDashboardTodoCases(userId, roles);
+        enrichCaseListDisplay(merged);
         CaseDashboardTodosDto result = new CaseDashboardTodosDto();
         List<CaseDashboardTodoItemDto> items = new ArrayList<>();
         for (int i = 0; i < merged.size() && i < cap; i++) {
@@ -742,6 +750,7 @@ public class CaseServiceImpl implements CaseService {
     public Page<CaseDashboardTodoItemDto> getDashboardTodosPage(Integer pageNum, Integer pageSize,
                                                               Long userId, List<String> roles) {
         List<CaseInfo> merged = collectMergedDashboardTodoCases(userId, roles);
+        enrichCaseListDisplay(merged);
         int pn = pageNum != null && pageNum > 0 ? pageNum : 1;
         int ps = pageSize != null && pageSize > 0 ? Math.min(pageSize, 100) : 10;
         int total = merged.size();
@@ -872,6 +881,12 @@ public class CaseServiceImpl implements CaseService {
         if (Boolean.TRUE.equals(c.getAwaitingDispatcherForward())) {
             return "待派遣员把关";
         }
+        if (Boolean.TRUE.equals(c.getPendingVerifyTask())) {
+            return "核实中";
+        }
+        if (Boolean.TRUE.equals(c.getPendingCheckTask())) {
+            return "核查中";
+        }
         String st = c.getCaseStatus();
         if (st == null) {
             return "--";
@@ -884,11 +899,24 @@ public class CaseServiceImpl implements CaseService {
             case CaseStatusConstant.PENDING_HANDLE -> "待指派";
             case CaseStatusConstant.HANDLING -> "处置中";
             case CaseStatusConstant.HANDLE_FINISH -> "处置人员已处置";
-            case CaseStatusConstant.PENDING_CHECK -> "待核查";
+            case CaseStatusConstant.PENDING_CHECK -> c.getCurrentHandlerId() != null ? "待结案" : "待批转受理员";
             case CaseStatusConstant.CHECKING -> "核查中";
             case CaseStatusConstant.RETURNED -> "部门回退";
             default -> st;
         };
+    }
+
+    /** 列表/待办：补充支线任务与批转展示字段，供前端统一状态文案 */
+    private void enrichCaseListDisplay(List<CaseInfo> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        for (CaseInfo record : records) {
+            record.setAwaitingDeptConfirm(isAwaitingDeptConfirm(record));
+            record.setAwaitingDispatcherForward(isAwaitingDispatcherForward(record));
+            record.setPendingCheckTask(taskService.hasPendingCheckTask(record.getId()));
+            record.setPendingVerifyTask(taskService.hasPendingVerifyTask(record.getId()));
+        }
     }
 
     private long countByDashboardStatGroup(String statGroup, Long userId, List<String> roles, String period) {
@@ -938,6 +966,7 @@ public class CaseServiceImpl implements CaseService {
                .eq(CaseInfo::getIsDeleted, 0)
                .orderByDesc(CaseInfo::getReportTime);
         Page<CaseInfo> result = caseInfoMapper.selectPage(page, wrapper);
+        enrichCaseListDisplay(result.getRecords());
         applyTimerDisplayList(result.getRecords());
         return result;
     }
@@ -984,11 +1013,12 @@ public class CaseServiceImpl implements CaseService {
         if (req.getClientUpdateTime() != null) {
             uw.eq(CaseInfo::getUpdateTime, req.getClientUpdateTime());
         }
+        String acceptorDisplayName = resolveOperatorName(operatorId);
         String dispatcherDisplayName = displayUserName(dispatcher);
         uw.set(CaseInfo::getCaseStatus, CaseStatusConstant.PENDING_DISPATCH)
                 .set(CaseInfo::getAcceptTime, now)
                 .set(CaseInfo::getRegisterOperatorId, operatorId)
-                .set(CaseInfo::getRegisterOperatorName, operatorName)
+                .set(CaseInfo::getRegisterOperatorName, acceptorDisplayName)
                 .set(CaseInfo::getCurrentHandlerId, dispatcher.getId())
                 .set(CaseInfo::getCurrentHandlerName, dispatcherDisplayName);
         if (dispatcher.getDepartmentId() != null) {
@@ -1035,7 +1065,7 @@ public class CaseServiceImpl implements CaseService {
         String flowRemark = "批转派遣员：" + dispatcherDisplayName
                 + (opinion.isBlank() ? "" : "；" + opinion);
         saveFlowRecord(caseId, updated.getCaseCode(), CaseStatusConstant.PENDING_DISPATCH, "立案并批转",
-                CaseFlowOperateType.FORWARD, flowRemark, operatorId, operatorName,
+                CaseFlowOperateType.FORWARD, flowRemark, operatorId, acceptorDisplayName,
                 dispatcher.getId(), dispatcherDisplayName);
 
         notifyUserTask(dispatcher.getId(), "新案件待派遣",
@@ -1096,7 +1126,8 @@ public class CaseServiceImpl implements CaseService {
         String flowRemark = "派遣至处置部门：" + deptName
                 + (remark != null && !remark.isBlank() ? "；" + remark : "");
         saveFlowRecord(caseId, updated.getCaseCode(), CaseStatusConstant.PENDING_HANDLE, "派遣至处置部门",
-                flowRemark, operatorId, resolveOperatorName(operatorId));
+                CaseFlowOperateType.FORWARD, flowRemark, operatorId, resolveOperatorName(operatorId),
+                departmentId, deptName);
 
         notifyDeptUsersNewCase(updated, deptName);
         caseTimerService.onCaseDispatched(updated.getId(), updated.getCaseCode(),
@@ -1190,8 +1221,10 @@ public class CaseServiceImpl implements CaseService {
             }
         }
 
-        saveFlowRecord(caseId, caseInfo.getCaseCode(), CaseStatusConstant.HANDLE_FINISH, "处置人员已处置", remark,
-                operatorId, resolveOperatorName(operatorId));
+        saveFlowRecord(caseId, caseInfo.getCaseCode(), CaseStatusConstant.HANDLE_FINISH, "处置人员已处置",
+                CaseFlowOperateType.FORWARD, remark != null ? remark : "",
+                operatorId, resolveOperatorName(operatorId),
+                null, caseInfo.getHandleDeptName());
 
         return caseInfo;
     }
@@ -1236,8 +1269,9 @@ public class CaseServiceImpl implements CaseService {
         String opinion = req.getRemark() != null ? req.getRemark() : "";
         String flowRemark = "部门确认处置结果，批转派遣员把关：" + dispatcherName
                 + (opinion.isBlank() ? "" : "；" + opinion);
-        saveFlowRecord(caseId, updated.getCaseCode(), CaseStatusConstant.PENDING_CHECK, "部门确认并批转", flowRemark,
-                operatorId, operatorName);
+        saveFlowRecord(caseId, updated.getCaseCode(), CaseStatusConstant.PENDING_CHECK, "部门确认并批转",
+                CaseFlowOperateType.FORWARD, flowRemark, operatorId, operatorName,
+                dispatcher.getId(), dispatcherName);
 
         notifyUserTask(dispatcher.getId(), "新案件待把关",
                 "案件 " + updated.getCaseCode() + " 待派遣员批转受理员",
@@ -1391,7 +1425,7 @@ public class CaseServiceImpl implements CaseService {
                 + (opinion.isBlank() ? "" : "；" + opinion);
         saveFlowRecord(caseId, updated.getCaseCode(), CaseStatusConstant.PENDING_HANDLE, "撤销指派",
                 CaseFlowOperateType.REVOKE_ASSIGN, flowRemark, operatorId, operatorName,
-                null, null);
+                handlerId, handlerName);
 
         return updated;
     }
@@ -1655,14 +1689,15 @@ public class CaseServiceImpl implements CaseService {
         task.setCollectorName(displayUserName(collector));
         task.setCollectorPhone(collector.getPhone());
         task.setAssignerId(operatorId);
-        task.setAssignerName(operatorName);
+        String operatorDisplayName = resolveOperatorName(operatorId);
+        task.setAssignerName(operatorDisplayName);
         checkTaskMapper.insert(task);
 
         caseInfo.setCaseStatus(CaseStatusConstant.CHECKING);
         caseInfo.setCheckTaskId(task.getId());
         if (caseInfo.getRegisterOperatorId() == null && operatorId != null) {
             caseInfo.setRegisterOperatorId(operatorId);
-            caseInfo.setRegisterOperatorName(operatorName);
+            caseInfo.setRegisterOperatorName(operatorDisplayName);
         }
         caseInfoMapper.updateById(caseInfo);
 
@@ -1714,7 +1749,7 @@ public class CaseServiceImpl implements CaseService {
         task.setCollectorName(displayUserName(collector));
         task.setCollectorPhone(collector.getPhone());
         task.setCreatorId(operatorId);
-        task.setCreatorName(operatorName);
+        task.setCreatorName(resolveOperatorName(operatorId));
         verifyTaskMapper.insert(task);
 
         caseInfo.setVerifyTaskId(task.getId());
@@ -1800,7 +1835,7 @@ public class CaseServiceImpl implements CaseService {
                 .set(CaseInfo::getCaseStatus, CaseStatusConstant.NOT_ACCEPTED)
                 .set(CaseInfo::getRemark, reason)
                 .set(CaseInfo::getRegisterOperatorId, operatorId)
-                .set(CaseInfo::getRegisterOperatorName, operatorName);
+                .set(CaseInfo::getRegisterOperatorName, resolveOperatorName(operatorId));
 
         int rows = caseInfoMapper.update(null, uw);
         if (rows == 0) {
@@ -1816,7 +1851,11 @@ public class CaseServiceImpl implements CaseService {
 
     @Override
     public List<CaseFlowRecord> getFlowRecords(Long caseId) {
-        return flowRecordMapper.selectByCaseId(caseId);
+        List<CaseFlowRecord> flows = flowRecordMapper.selectByCaseId(caseId);
+        for (CaseFlowRecord flow : flows) {
+            enrichFlowRecordDisplay(flow);
+        }
+        return flows;
     }
 
     @Override
@@ -2463,6 +2502,38 @@ public class CaseServiceImpl implements CaseService {
         return user.getUsername();
     }
 
+    /** 详情展示：按用户 ID 刷新立案/派遣/当前处理人姓名（修正历史写入的账号名） */
+    private void enrichCaseOperatorDisplay(CaseInfo caseInfo) {
+        if (caseInfo.getRegisterOperatorId() != null) {
+            caseInfo.setRegisterOperatorName(resolveOperatorName(caseInfo.getRegisterOperatorId()));
+        }
+        if (caseInfo.getDispatchOperatorId() != null) {
+            caseInfo.setDispatchOperatorName(resolveOperatorName(caseInfo.getDispatchOperatorId()));
+        }
+        if (caseInfo.getCurrentHandlerId() != null) {
+            String handlerName = resolveOperatorName(caseInfo.getCurrentHandlerId());
+            if (!"系统".equals(handlerName)) {
+                caseInfo.setCurrentHandlerName(handlerName);
+            }
+        }
+    }
+
+    /** 流程记录展示：按 operator_id / receiver_id（仅对应真实用户）刷新姓名 */
+    private void enrichFlowRecordDisplay(CaseFlowRecord flow) {
+        if (flow.getOperatorId() != null) {
+            String operatorName = resolveOperatorName(flow.getOperatorId());
+            if (!"系统".equals(operatorName)) {
+                flow.setOperatorName(operatorName);
+            }
+        }
+        if (flow.getReceiverId() != null) {
+            SysUser receiver = sysUserMapper.selectById(flow.getReceiverId());
+            if (receiver != null) {
+                flow.setReceiverName(displayUserName(receiver));
+            }
+        }
+    }
+
     private void assertDispatcherAssignee(CaseInfo caseInfo, Long operatorId, List<String> operatorRoles) {
         if (caseInfo.getCurrentHandlerId() == null || operatorId == null) {
             return;
@@ -2705,6 +2776,13 @@ public class CaseServiceImpl implements CaseService {
                 operatorId, operatorName, null, null);
     }
 
+    private void saveFlowRecord(Long caseId, String caseCode, String nodeCode, String nodeName, String operateOpinion,
+                                Long operatorId, String operatorName,
+                                Long receiverId, String receiverName) {
+        saveFlowRecord(caseId, caseCode, nodeCode, nodeName, CaseFlowOperateType.FORWARD, operateOpinion,
+                operatorId, operatorName, receiverId, receiverName);
+    }
+
     private void saveFlowRecord(Long caseId, String caseCode, String nodeCode, String nodeName,
                                 String operateType, String operateOpinion,
                                 Long operatorId, String operatorName,
@@ -2717,7 +2795,10 @@ public class CaseServiceImpl implements CaseService {
             throw new BusinessException("案件编码为空，无法写入流程记录，请检查 case_info.case_code");
         }
         long opId = operatorId != null ? operatorId : 1L;
-        String opName = operatorName != null && !operatorName.isBlank() ? operatorName : "系统";
+        String opName = resolveOperatorName(opId);
+        if ("系统".equals(opName) && operatorName != null && !operatorName.isBlank()) {
+            opName = operatorName;
+        }
         String opType = operateType != null && !operateType.isBlank() ? operateType : CaseFlowOperateType.FORWARD;
         LocalDateTime now = LocalDateTime.now();
         jdbcTemplate.update(

@@ -4,6 +4,58 @@
 
 ---
 
+## 2026-06-07 工作小结（流程接收人/状态一致 + 详情 UX + 采集端待办与通知）
+
+### 当日摘要
+
+1. **流程记录「接收人」**：
+   - 上报、立案、派遣、批转、延期/挂账审批等节点写入 `receiver_id` / `receiver_name`。
+   - 管理端 `CaseDetail.vue` 流程区展示「接收人：XXX（部门）」。
+2. **操作人显示真实姓名**：
+   - `JwtAuthenticationFilter` 鉴权时补全 `realName` 等资料。
+   - `CaseServiceImpl` / `CaseAdjustmentServiceImpl`：`resolveOperatorName`、`enrichCaseOperatorDisplay`、`enrichFlowRecordDisplay`（历史数据按 ID 反查姓名）。
+3. **列表与详情状态一致**：
+   - `caseStatus.js` 结合 `pendingVerifyTask` / `pendingCheckTask` 显示「待核实/待核查/待结案」。
+   - 列表接口 `enrichCaseListDisplay` 补任务标记，避免核实后列表仍显示「待核查」。
+4. **管理端案件详情 UX**：
+   - 新增「采集员反馈」卡片（核实/核查结果、意见、人员、时间）。
+   - 现场照片（上报/处置/核查/核实）**单行横向滚动**，标签区分类型。
+   - 流程记录保持单行紧凑 + 接收人。
+5. **工作台与消息**：
+   - 工作台待办列宽调整（`dashboard/index.vue`、`CaseDashboardTodos.vue`）。
+   - 消息列表时间 `formatDateTime` 去掉 `T`。
+6. **高德地图加载**：
+   - 新增 `mapUtil.js`（`waitForGlobalAmap`、`waitForElementSize`）。
+   - `GridManage` / `CollectorManage` / `CaseLocationMap` 修复 `AMap is not defined`（代理环境下需直连 `*.amap.com`）。
+7. **采集端（collector-app）**：
+   - 首页合并为「我的任务」入口；待办从核查/核实 API 聚合；监听 `cityguard:refresh-lists`。
+   - Tab 文案统一「我的任务」。
+   - 顶部新消息/任务 `showNotify` **白底白字**修复（引入 notify 样式 + `collector-push-notify` 蓝底白字）。
+8. **文档**：新增 `docs/TEST_CHECKLIST.md`（阶段 0 联调验收清单）。
+
+| 层 | 内容 |
+|----|------|
+| **后端·auth** | JWT 加载用户 `realName` 等 |
+| **后端·case** | 流程接收人、操作人/列表展示 enrich、任务完成 handler |
+| **前端·管理端** | CaseDetail（反馈/照片/流程）、CaseList/Query/Status、工作台、地图页、MessageList |
+| **前端·采集端** | home 待办聚合、Notify 样式、MainLayout Tab、地图组件 |
+| **文档** | `TEST_CHECKLIST.md` |
+
+### 联调注意
+
+- 改 **case/auth** 后须 `mvn clean install -pl smart-cityguard-case,smart-cityguard-auth -am -DskipTests` 并重启 8080。
+- 高德地图若报 `ERR_PROXY_CONNECTION_FAILED`，关闭系统代理或放行 `*.amap.com`。
+
+### 明天优先（接续）
+
+1. 按 **`TEST_CHECKLIST.md`** 全链路验收（主干流 + 延期挂账 + 综合查询/统计）。
+2. 流程接收人、状态一致、采集员反馈、Notify 样式现场复测。
+3. 可选：采集端处置详情照片也改为单行横向（与管理端一致）。
+
+**本地联调**：8080 / 3000 / 3003；改 case/auth → `mvn install` 后重启 8080。
+
+---
+
 ## 2026-06-02 工作小结（综合查询/考核 + 延期挂账两级审批 + 处置 UX）
 
 ### 当日摘要

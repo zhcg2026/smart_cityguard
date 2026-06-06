@@ -243,7 +243,7 @@
         <el-table-column prop="caseStatus" label="状态" width="110">
           <template #default="{ row }">
             <el-tag :type="getCaseStatusTagType(row.caseStatus)">
-              {{ formatCaseStatusLabel(row.caseStatus) }}
+              {{ formatCaseStatusLabel(row) }}
             </el-tag>
           </template>
         </el-table-column>

@@ -191,7 +191,7 @@
         <el-table-column prop="smallName" label="小类" width="110" show-overflow-tooltip />
         <el-table-column prop="caseStatus" label="状态" width="110">
           <template #default="{ row }">
-            <el-tag :type="getCaseStatusTagType(row.caseStatus)">{{ formatCaseStatusLabel(row.caseStatus) }}</el-tag>
+            <el-tag :type="getCaseStatusTagType(row.caseStatus)">{{ formatCaseStatusLabel(row) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="handleDeptName" label="处置部门" width="120" show-overflow-tooltip />

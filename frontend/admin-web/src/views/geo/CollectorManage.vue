@@ -121,6 +121,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getCollectorMapOverview, setRespGridCollectors } from '@/api/geo'
 import { formatCaseStatusLabel } from '@/utils/caseStatus'
+import { waitForElementSize, waitForGlobalAmap } from '@/utils/mapUtil'
 
 const router = useRouter()
 
@@ -224,9 +225,18 @@ async function reload() {
   }
 }
 
-function initMap() {
+async function initMap() {
   if (!mapContainer.value || map) return
-  map = new AMap.Map(mapContainer.value, {
+
+  const ready = await waitForGlobalAmap()
+  if (!ready) {
+    ElMessage.warning('高德地图加载失败，请刷新页面或检查网络')
+    return
+  }
+  const sized = await waitForElementSize(mapContainer.value)
+  if (!sized) return
+
+  map = new window.AMap.Map(mapContainer.value, {
     zoom: 12,
     center: [111.0, 35.03],
     viewMode: '2D'
@@ -257,7 +267,7 @@ function renderMapLayers() {
       const path = geometry.coordinates[0].map((c) => [c[0], c[1]])
       const isHighlight = !selectedCollectorId.value || highlightIds.has(area.id)
       const color = AREA_COLORS[index % AREA_COLORS.length]
-      const polygon = new AMap.Polygon({
+      const polygon = new window.AMap.Polygon({
         extData: { gridId: area.id, gridName: area.respGridName },
         path,
         fillColor: color,
@@ -273,7 +283,7 @@ function renderMapLayers() {
             return c ? collectorLabel(c) : `用户${uid}`
           })
           .join('、') || '未分配'
-        new AMap.InfoWindow({
+        new window.AMap.InfoWindow({
           content: `<div style="padding:4px 0"><b>${area.respGridName}</b><br/>采集员：${names}</div>`
         }).open(map, polygon.getBounds().getCenter())
       })
@@ -286,7 +296,7 @@ function renderMapLayers() {
 
   if (showCases.value && selectedCollectorId.value) {
     visibleCases.value.forEach((item) => {
-      const marker = new AMap.Marker({
+      const marker = new window.AMap.Marker({
         position: [item.longitude, item.latitude],
         title: item.caseCode,
         extData: item,
@@ -295,7 +305,7 @@ function renderMapLayers() {
       marker.on('click', () => {
         const status = formatCaseStatusLabel(item.caseStatus)
         const grid = item.respGridName ? `<br/>片区：${item.respGridName}` : ''
-        new AMap.InfoWindow({
+        new window.AMap.InfoWindow({
           content: `<div style="padding:4px 0"><b>${item.caseCode}</b><br/>${status}${grid}<br/><a href="javascript:;" id="case-link-${item.id}">查看详情</a></div>`
         }).open(map, marker.getPosition())
         setTimeout(() => {
@@ -313,10 +323,10 @@ function renderMapLayers() {
   if (selectedCollector.value) {
     selectedCollectorGrids.value.forEach((g, i) => {
       if (g.centerLng == null || g.centerLat == null) return
-      const marker = new AMap.Marker({
+      const marker = new window.AMap.Marker({
         position: [Number(g.centerLng), Number(g.centerLat)],
         content: `<div class="collector-pin">${i + 1}</div>`,
-        offset: new AMap.Pixel(-12, -12),
+        offset: new window.AMap.Pixel(-12, -12),
         zIndex: 200
       })
       map.add(marker)
@@ -371,7 +381,7 @@ async function submitGridBind() {
 
 onMounted(async () => {
   await nextTick()
-  initMap()
+  await initMap()
   await reload()
 })
 

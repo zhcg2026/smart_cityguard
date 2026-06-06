@@ -107,6 +107,18 @@ Set-Location d:\smart_cityguard\backend; mvn clean install -pl smart-cityguard-m
 
 ## 沟通纪要（接续用）
 
+**2026-06-07**
+
+- **流程接收人**：各节点写 `receiver_name`；详情流程展示；延期/挂账审批补接收人。
+- **真实姓名**：JWT 补 `realName`；`resolveOperatorName` / 历史流程反查。
+- **状态一致**：列表 `pendingVerifyTask`/`pendingCheckTask` + `caseStatus.js`。
+- **详情 UX**：采集员反馈卡片；现场照片单行横向；工作台待办列宽。
+- **地图**：`mapUtil.js`；修复 `AMap is not defined`（注意代理）。
+- **采集端**：首页待办聚合「我的任务」；Notify 蓝底白字修复。
+- **文档**：`TEST_CHECKLIST.md` 阶段 0 验收清单。
+- **GitHub**：已同步 master。
+- **明天优先**：按测试清单全链路验收。详见 **`docs/PROJECT_PROGRESS.md` §2026-06-07**。
+
 **2026-06-02**
 
 - **综合查询/考核**：状态/来源修正、大小类级联、问题描述；合计行反查；`caseQuery.js`。

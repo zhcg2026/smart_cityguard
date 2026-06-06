@@ -13,10 +13,9 @@
     </div>
 
     <!-- 快捷功能 -->
-    <van-grid :column-num="3" class="quick-grid">
+    <van-grid :column-num="2" class="quick-grid">
       <van-grid-item icon="edit" text="问题上报" to="/report" />
-      <van-grid-item icon="todo-list-o" text="核查任务" to="/task" />
-      <van-grid-item icon="checked" text="核实任务" to="/task" />
+      <van-grid-item icon="orders-o" text="我的任务" to="/task" />
     </van-grid>
 
     <!-- 今日提示 -->
@@ -59,15 +58,28 @@
     </van-popup>
 
     <!-- 待办任务 -->
-    <van-cell-group title="待办任务" inset>
-      <van-cell v-for="task in pendingTasks" :key="task.id" :title="task.title" :label="task.deadline" is-link>
+    <van-cell-group inset>
+      <template #title>
+        <div class="section-title-row">
+          <span>待办任务</span>
+          <span v-if="pendingTasks.length" class="section-link" @click="goTaskList">查看全部</span>
+        </div>
+      </template>
+      <van-cell
+        v-for="task in pendingTasks"
+        :key="`${task.type}-${task.id}`"
+        :title="task.title"
+        :label="task.deadline"
+        is-link
+        @click="openTask(task)"
+      >
         <template #icon>
-          <van-tag :type="task.type === 'verify' ? 'warning' : 'success'">
-            {{ task.type === 'verify' ? '核查' : '核实' }}
+          <van-tag :type="task.type === 'check' ? 'warning' : 'success'">
+            {{ task.type === 'check' ? '核查' : '核实' }}
           </van-tag>
         </template>
       </van-cell>
-      <van-empty v-if="pendingTasks.length === 0" description="暂无待办" image-size="60" />
+      <van-empty v-if="!pendingLoading && pendingTasks.length === 0" description="暂无待办" image-size="60" />
     </van-cell-group>
 
     <!-- 我的最近上报 -->
@@ -85,11 +97,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getToken } from '@/utils/auth'
 import { getMyCaseList } from '@/api/case'
+import { getCheckTaskList, getVerifyTaskList } from '@/api/task'
 import {
   getDailyTipList,
   getDailyTipDetail,
@@ -104,6 +117,7 @@ const userInfo = computed(() => userStore.userInfo)
 const dailyTips = ref([])
 const announcements = ref([])
 const pendingTasks = ref([])
+const pendingLoading = ref(false)
 const myRecentCases = ref([])
 const contentLoading = ref(false)
 const detailVisible = ref(false)
@@ -121,10 +135,64 @@ const statusLabel = (s) =>
     not_accepted: '不受理'
   }[s] || s)
 
-function formatPublishTime(value) {
-  if (!value) return ''
-  const text = String(value)
-  return text.length >= 16 ? text.slice(0, 16).replace('T', ' ') : text
+function formatTaskDeadline(value) {
+  if (!value) return '截止时间：—'
+  const text = String(value).replace('T', ' ')
+  const slice = text.length >= 16 ? text.slice(0, 16) : text
+  return `截止时间：${slice}`
+}
+
+function mapPendingTask(task, type) {
+  return {
+    id: task.id,
+    type,
+    title: task.caseCode || task.caseNo || task.taskCode || '任务',
+    deadline: formatTaskDeadline(task.deadlineTime)
+  }
+}
+
+async function loadPendingTasks() {
+  pendingLoading.value = true
+  try {
+    const [checkRes, verifyRes] = await Promise.all([
+      getCheckTaskList({ pageNum: 1, pageSize: 5, status: 0 }),
+      getVerifyTaskList({ pageNum: 1, pageSize: 5, status: 0 })
+    ])
+    const checkRows = (checkRes.data?.records || [])
+      .filter((t) => t.taskStatus === 'pending')
+      .map((t) => mapPendingTask(t, 'check'))
+    const verifyRows = (verifyRes.data?.records || [])
+      .filter((t) => t.taskStatus === 'pending')
+      .map((t) => mapPendingTask(t, 'verify'))
+    pendingTasks.value = [...checkRows, ...verifyRows].slice(0, 8)
+  } catch {
+    pendingTasks.value = []
+  } finally {
+    pendingLoading.value = false
+  }
+}
+
+function openTask(task) {
+  if (!task?.id) return
+  if (task.type === 'check') {
+    router.push(`/task/check/${task.id}`)
+  } else {
+    router.push(`/task/verify/${task.id}`)
+  }
+}
+
+function goTaskList() {
+  router.push('/task')
+}
+
+async function reloadHome() {
+  await Promise.all([loadHomeContent(), loadPendingTasks()])
+  try {
+    const res = await getMyCaseList({ pageNum: 1, pageSize: 5 })
+    myRecentCases.value = res.data?.records || []
+  } catch {
+    myRecentCases.value = []
+  }
 }
 
 async function loadHomeContent() {
@@ -142,6 +210,12 @@ async function loadHomeContent() {
   } finally {
     contentLoading.value = false
   }
+}
+
+function formatPublishTime(value) {
+  if (!value) return ''
+  const text = String(value)
+  return text.length >= 16 ? text.slice(0, 16).replace('T', ' ') : text
 }
 
 async function openContentDetail(row, type) {
@@ -166,13 +240,12 @@ onMounted(async () => {
   if (!getToken()) {
     return
   }
-  await loadHomeContent()
-  try {
-    const res = await getMyCaseList({ pageNum: 1, pageSize: 5 })
-    myRecentCases.value = res.data?.records || []
-  } catch {
-    myRecentCases.value = []
-  }
+  await reloadHome()
+  window.addEventListener('cityguard:refresh-lists', reloadHome)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('cityguard:refresh-lists', reloadHome)
 })
 
 function goMessage() {
@@ -219,6 +292,20 @@ function goMessage() {
 
 .quick-grid {
   margin: 20px 0;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-right: 4px;
+}
+
+.section-link {
+  font-size: 12px;
+  color: #1989fa;
+  font-weight: normal;
 }
 
 .content-detail {

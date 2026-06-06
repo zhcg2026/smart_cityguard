@@ -118,18 +118,21 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
         apply.setSuspendUntil(suspendUntil);
         apply.setOldDeadlineTime(caseInfo.getDeadlineTime());
         apply.setApplicantId(operatorId);
-        apply.setApplicantName(operatorName);
+        apply.setApplicantName(resolveOperatorName(operatorId));
         apply.setApplicantDeptId(operator != null ? operator.getDepartmentId() : caseInfo.getHandleDeptId());
         adjustmentApplyMapper.insert(apply);
 
         String typeLabel = CaseAdjustmentConstant.TYPE_EXTENSION.equals(applyType) ? "延期" : "挂账";
+        String deptName = caseInfo.getHandleDeptName() != null ? caseInfo.getHandleDeptName() : "处置部门";
         if (handlerInitiated) {
             saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), caseInfo.getCaseStatus(),
-                    "申请" + typeLabel, "处置人员申请" + typeLabel + "（待部门审核）：" + reason, operatorId, operatorName);
+                    "申请" + typeLabel, "处置人员申请" + typeLabel + "（待部门审核）：" + reason,
+                    operatorId, operatorName, null, deptName);
             notifyDeptReviewers(caseInfo, typeLabel);
         } else {
             saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), caseInfo.getCaseStatus(),
-                    "申请" + typeLabel, "处置部门申请" + typeLabel + "：" + reason, operatorId, operatorName);
+                    "申请" + typeLabel, "处置部门申请" + typeLabel + "：" + reason,
+                    operatorId, operatorName, null, "派遣员");
             notifyDispatcherReviewer(caseInfo, typeLabel);
         }
         fillLabels(apply, caseInfo);
@@ -220,7 +223,7 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
 
         String remark = request.getReviewRemark() != null ? request.getReviewRemark().trim() : "";
         apply.setDeptReviewerId(operatorId);
-        apply.setDeptReviewerName(operatorName);
+        apply.setDeptReviewerName(resolveOperatorName(operatorId));
         apply.setDeptReviewTime(LocalDateTime.now());
         apply.setDeptReviewRemark(remark);
 
@@ -230,7 +233,7 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
             saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), caseInfo.getCaseStatus(),
                     "部门同意报送" + typeLabel,
                     "处置部门同意报送" + typeLabel + (remark.isBlank() ? "" : "：" + remark),
-                    operatorId, operatorName);
+                    operatorId, operatorName, null, "派遣员");
             notifyDispatcherReviewer(caseInfo, typeLabel);
             notifyUser(apply.getApplicantId(), typeLabel + "部门已通过",
                     "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel + "申请部门已同意报送派遣员",
@@ -243,7 +246,7 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
             saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), caseInfo.getCaseStatus(),
                     "部门驳回" + typeLabel,
                     "处置部门驳回" + typeLabel + "：" + remark,
-                    operatorId, operatorName);
+                    operatorId, operatorName, apply.getApplicantId(), apply.getApplicantName());
             notifyUser(apply.getApplicantId(), typeLabel + "部门未通过",
                     "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel + "申请部门未通过：" + remark,
                     caseInfo.getId(), caseInfo.getCaseCode());
@@ -283,7 +286,7 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
 
         String remark = request.getReviewRemark() != null ? request.getReviewRemark().trim() : "";
         apply.setReviewerId(operatorId);
-        apply.setReviewerName(operatorName);
+        apply.setReviewerName(resolveOperatorName(operatorId));
         apply.setReviewTime(LocalDateTime.now());
         apply.setReviewRemark(remark);
 
@@ -308,7 +311,7 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
             saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), caseInfo.getCaseStatus(),
                     "批准" + typeLabel,
                     "派遣员批准" + typeLabel + (remark.isBlank() ? "" : "：" + remark),
-                    operatorId, operatorName);
+                    operatorId, operatorName, apply.getApplicantId(), apply.getApplicantName());
         } else {
             if (remark.isBlank()) {
                 throw new BusinessException("驳回时请填写审批意见");
@@ -317,7 +320,7 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
             saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), caseInfo.getCaseStatus(),
                     "驳回" + typeLabel,
                     "派遣员驳回" + typeLabel + "：" + remark,
-                    operatorId, operatorName);
+                    operatorId, operatorName, apply.getApplicantId(), apply.getApplicantName());
         }
         adjustmentApplyMapper.updateById(apply);
         fillLabels(apply, caseInfo);
@@ -593,18 +596,46 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
 
     private void saveFlowRecord(Long caseId, String caseCode, String nodeCode, String nodeName,
                                 String opinion, Long operatorId, String operatorName) {
+        saveFlowRecord(caseId, caseCode, nodeCode, nodeName, opinion, operatorId, operatorName, null, null);
+    }
+
+    private String resolveOperatorName(Long operatorId) {
+        if (operatorId == null) {
+            return "系统";
+        }
+        SysUser user = sysUserMapper.selectById(operatorId);
+        if (user == null) {
+            return "系统";
+        }
+        if (user.getRealName() != null && !user.getRealName().isBlank()) {
+            return user.getRealName();
+        }
+        return user.getUsername();
+    }
+
+    private void saveFlowRecord(Long caseId, String caseCode, String nodeCode, String nodeName,
+                                String opinion, Long operatorId, String operatorName,
+                                Long receiverId, String receiverName) {
+        String opName = resolveOperatorName(operatorId);
+        if ("系统".equals(opName) && operatorName != null && !operatorName.isBlank()) {
+            opName = operatorName;
+        }
         jdbcTemplate.update(
                 """
                 INSERT INTO case_flow_record (
                     case_id, case_code, node_code, node_name,
                     operate_type, operate_result, operate_opinion,
-                    operator_id, operator_name, operate_time, create_time
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                    operator_id, operator_name,
+                    receiver_id, receiver_name,
+                    operate_time, create_time
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 caseId, caseCode, nodeCode, nodeName,
                 "adjustment", "adjustment", opinion != null ? opinion : "",
                 operatorId != null ? operatorId : 1L,
-                operatorName != null ? operatorName : "系统",
+                opName,
+                receiverId,
+                receiverName,
                 LocalDateTime.now(), LocalDateTime.now());
     }
 

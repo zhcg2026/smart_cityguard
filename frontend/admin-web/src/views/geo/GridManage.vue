@@ -150,6 +150,7 @@ import {
 } from '@/api/geo'
 import { getUserList } from '@/api/system'
 import { RoleCode } from '@/utils/roleAccess'
+import { waitForElementSize, waitForGlobalAmap } from '@/utils/mapUtil'
 
 // ==================== 数据 ====================
 const listLoading = ref(false)
@@ -191,7 +192,7 @@ onMounted(async () => {
   await loadAreaList()
   loadCollectorList()
   await nextTick()
-  initMap()
+  await initMap()
 })
 
 onBeforeUnmount(() => {
@@ -202,11 +203,19 @@ onBeforeUnmount(() => {
 })
 
 // ==================== 地图 ====================
-function initMap() {
-  if (!mapContainer.value) return
+async function initMap() {
+  if (!mapContainer.value || map) return
+
+  const ready = await waitForGlobalAmap()
+  if (!ready) {
+    ElMessage.warning('高德地图加载失败，请刷新页面或检查网络')
+    return
+  }
+  const sized = await waitForElementSize(mapContainer.value)
+  if (!sized) return
 
   // 运城市中心点：约 111.0, 35.03
-  map = new AMap.Map(mapContainer.value, {
+  map = new window.AMap.Map(mapContainer.value, {
     zoom: 12,
     center: [111.0, 35.03],
     viewMode: '2D'
@@ -246,7 +255,7 @@ function renderPolygons() {
 
       const color = colors[index % colors.length]
 
-      const polygon = new AMap.Polygon({
+      const polygon = new window.AMap.Polygon({
         extData: { areaId: area.id },
         path,
         fillColor: color,

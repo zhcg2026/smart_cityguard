@@ -27,3 +27,13 @@ export function loadAmapScript() {
 
 /** 运城市区默认中心（GCJ-02） */
 export const DEFAULT_MAP_CENTER = [111.003957, 35.022778]
+
+/** 等待 DOM 容器具备可绘制尺寸（避免页面未排版完成时初始化失败） */
+export async function waitForElementSize(el, maxFrames = 24) {
+  if (!el) return false
+  for (let i = 0; i < maxFrames; i++) {
+    if (el.offsetHeight >= 10 && el.offsetWidth >= 10) return true
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+  }
+  return el.offsetHeight >= 10 && el.offsetWidth >= 10
+}

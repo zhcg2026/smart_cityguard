@@ -16,7 +16,11 @@
         </el-table-column>
         <el-table-column prop="msgTitle" label="标题" min-width="140" />
         <el-table-column prop="msgContent" label="内容" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="msgTime" label="时间" width="170" />
+        <el-table-column prop="msgTime" label="时间" width="170">
+          <template #default="{ row }">
+            {{ formatDateTime(row.msgTime) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="openMessage(row)">查看</el-button>
@@ -33,6 +37,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getMessageList, markMessageRead, markAllMessagesRead } from '@/api/message'
+import { formatDateTime } from '@/utils/dateFormat'
 
 const router = useRouter()
 const loading = ref(false)

@@ -49,6 +49,7 @@
 
     <van-cell-group title="位置" inset>
       <CaseLocationMap
+        :key="locationMapKey"
         :longitude="caseInfo.longitude"
         :latitude="caseInfo.latitude"
         :address="caseInfo.address"
@@ -228,6 +229,7 @@ const route = useRoute()
 const userStore = useUserStore()
 
 const caseInfo = ref({})
+const locationMapKey = ref(0)
 const reportImages = ref([])
 const handlePhotoBatches = ref([])
 const imagesLoading = ref(false)
@@ -462,6 +464,7 @@ async function loadDetail() {
       getCaseAttachments(id).catch(() => ({ data: [] }))
     ])
     caseInfo.value = detailRes.data || {}
+    locationMapKey.value += 1
     const attList = attRes.data || []
     await Promise.all([loadReportImages(attList), loadHandlePhotoBatches(attList)])
   } catch {

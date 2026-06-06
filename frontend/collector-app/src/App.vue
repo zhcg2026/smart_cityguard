@@ -54,6 +54,17 @@ body {
   background: rgba(7, 193, 96, 0.94) !important;
   color: #fff !important;
 }
+
+/* 顶部新消息/任务 Notify：避免白底白字 */
+.collector-push-notify {
+  max-width: 100% !important;
+  padding: 12px 16px !important;
+  line-height: 1.45 !important;
+  word-break: break-word !important;
+  white-space: pre-wrap !important;
+  background: #1989fa !important;
+  color: #fff !important;
+}
 </style>
 
 <style>

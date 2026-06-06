@@ -49,13 +49,13 @@ const routes = [
         path: 'task/verify/:id',
         name: 'VerifyTask',
         component: () => import('@/views/task/VerifyTask.vue'),
-        meta: { title: '核查任务详情', hideTabbar: true }
+        meta: { title: '核实任务详情', hideTabbar: true }
       },
       {
         path: 'task/check/:id',
         name: 'CheckTask',
         component: () => import('@/views/task/CheckTask.vue'),
-        meta: { title: '核实任务详情', hideTabbar: true }
+        meta: { title: '核查任务详情', hideTabbar: true }
       },
       {
         path: 'mine',

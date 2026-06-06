@@ -56,7 +56,8 @@ public class CaseTaskCompletionHandlerImpl implements CaseTaskCompletionHandler 
                 ? checkOpinion
                 : labelCheckResult(checkResult);
         insertFlow(caseInfo, CaseStatusConstant.PENDING_REGISTER, "核查完成",
-                collectorId, task.getCollectorName(), opinion);
+                collectorId, task.getCollectorName(), opinion,
+                task.getAssignerId(), task.getAssignerName());
         if (task.getAssignerId() != null) {
             notifyUser(task.getAssignerId(), "核查任务已完成",
                     "案件 " + caseInfo.getCaseCode() + " 核查已提交，可继续立案",
@@ -81,7 +82,8 @@ public class CaseTaskCompletionHandlerImpl implements CaseTaskCompletionHandler 
                 ? verifyOpinion
                 : labelVerifyResult(verifyResult);
         insertFlow(caseInfo, caseInfo.getCaseStatus(), "核实完成",
-                collectorId, task.getCollectorName(), opinion);
+                collectorId, task.getCollectorName(), opinion,
+                task.getCreatorId(), task.getCreatorName());
         if (task.getCreatorId() != null) {
             notifyUser(task.getCreatorId(), "核实任务已完成",
                     "案件 " + caseInfo.getCaseCode() + " 核实已提交，可继续结案",
@@ -101,7 +103,8 @@ public class CaseTaskCompletionHandlerImpl implements CaseTaskCompletionHandler 
     }
 
     private void insertFlow(CaseInfo caseInfo, String nodeCode, String nodeName,
-                            Long operatorId, String operatorName, String opinion) {
+                            Long operatorId, String operatorName, String opinion,
+                            Long receiverId, String receiverName) {
         long opId = operatorId != null ? operatorId : 1L;
         String opName = operatorName != null && !operatorName.isBlank() ? operatorName : "系统";
         LocalDateTime now = LocalDateTime.now();
@@ -111,8 +114,9 @@ public class CaseTaskCompletionHandlerImpl implements CaseTaskCompletionHandler 
                     case_id, case_code, node_code, node_name,
                     operate_type, operate_result, operate_opinion,
                     operator_id, operator_name,
+                    receiver_id, receiver_name,
                     operate_time, create_time
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 caseInfo.getId(),
                 caseInfo.getCaseCode(),
@@ -123,6 +127,8 @@ public class CaseTaskCompletionHandlerImpl implements CaseTaskCompletionHandler 
                 opinion != null ? opinion : "",
                 opId,
                 opName,
+                receiverId,
+                receiverName,
                 now,
                 now);
     }

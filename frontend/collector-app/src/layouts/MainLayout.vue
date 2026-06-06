@@ -45,7 +45,7 @@ const tabs = computed(() => {
     return [
       { path: '/handle', label: '待处置', icon: 'todo-list-o' },
       { path: '/report', label: '上报', icon: 'edit' },
-      { path: '/task', label: '任务', icon: 'orders-o' },
+      { path: '/task', label: '我的任务', icon: 'orders-o' },
       { path: '/mine', label: '我的', icon: 'user-o' }
     ]
   }
@@ -53,7 +53,7 @@ const tabs = computed(() => {
   return [
     { path: '/home', label: '首页', icon: 'home-o' },
     { path: '/report', label: '上报', icon: 'edit' },
-    { path: '/task', label: '任务', icon: 'todo-list-o' },
+    { path: '/task', label: '我的任务', icon: 'todo-list-o' },
     { path: '/mine', label: '我的', icon: 'user-o' }
   ]
 })

@@ -1,6 +1,7 @@
 package com.cityguard.auth.security;
 
 import com.cityguard.auth.entity.LoginUser;
+import com.cityguard.auth.entity.SysUser;
 import com.cityguard.auth.mapper.SysUserMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -39,6 +40,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             LoginUser loginUser = new LoginUser();
             loginUser.setId(userId);
             loginUser.setUsername(username);
+            try {
+                SysUser profile = sysUserMapper.selectById(userId);
+                if (profile != null) {
+                    loginUser.setRealName(profile.getRealName());
+                    loginUser.setPhone(profile.getPhone());
+                    loginUser.setEmail(profile.getEmail());
+                    loginUser.setAvatar(profile.getAvatar());
+                    loginUser.setDepartmentId(profile.getDepartmentId());
+                }
+            } catch (Exception ex) {
+                // 不因资料加载失败阻断请求
+            }
 
             List<String> roleCodes = new ArrayList<>();
             try {
