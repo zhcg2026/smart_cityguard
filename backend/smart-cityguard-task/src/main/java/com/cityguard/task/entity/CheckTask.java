@@ -60,6 +60,9 @@ public class CheckTask {
 
     private String assignerName;
 
+    /** 受理员下发核查时的要求/备注 */
+    private String assignRemark;
+
     private Integer reworkCount;
 
     @TableField(fill = FieldFill.INSERT)
@@ -76,6 +79,12 @@ public class CheckTask {
 
     @TableField(exist = false)
     private String bigName;
+
+    @TableField(exist = false)
+    private String timeRemaining;
+
+    @TableField(exist = false)
+    private Boolean timedOut;
 
     @JsonProperty("taskNo")
     public String getTaskNo() {

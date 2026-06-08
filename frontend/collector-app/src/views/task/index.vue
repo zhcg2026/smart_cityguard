@@ -15,7 +15,7 @@
               v-for="task in checkTasks"
               :key="task.id"
               :title="task.caseNo || task.caseCode"
-              :label="task.address"
+              :label="taskListLabel(task)"
               is-link
               @click="goCheckDetail(task.id)"
             >
@@ -44,7 +44,7 @@
               v-for="task in verifyTasks"
               :key="task.id"
               :title="task.caseNo || task.caseCode"
-              :label="task.address"
+              :label="taskListLabel(task)"
               is-link
               @click="goVerifyDetail(task.id)"
             >
@@ -68,6 +68,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCheckTaskList, getVerifyTaskList } from '@/api/task'
+import { buildTaskListLabel } from '@/utils/taskTimer'
 
 const router = useRouter()
 const activeTab = ref(0)
@@ -118,6 +119,10 @@ async function loadVerifyTasks() {
     verifyLoading.value = false
     verifyFinished.value = true
   }
+}
+
+function taskListLabel(task) {
+  return buildTaskListLabel(task)
 }
 
 function goCheckDetail(id) {

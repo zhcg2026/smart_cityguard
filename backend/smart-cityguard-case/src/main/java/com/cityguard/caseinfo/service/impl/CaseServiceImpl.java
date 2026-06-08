@@ -26,6 +26,7 @@ import com.cityguard.caseinfo.dto.CaseSendTaskRequest;
 import com.cityguard.caseinfo.dto.CollectorCandidateDto;
 import com.cityguard.caseinfo.dto.HandlerDeptNotice;
 import com.cityguard.common.constant.CaseFlowOperateType;
+import com.cityguard.common.constant.CaseSourceConstant;
 import com.cityguard.common.spi.UserNotificationSender;
 import com.cityguard.caseinfo.entity.*;
 import com.cityguard.caseinfo.mapper.*;
@@ -279,8 +280,14 @@ public class CaseServiceImpl implements CaseService {
         saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), CaseStatusConstant.PENDING_REGISTER,
                 "案件登记", opinion, operatorId, operatorName, null, "受理员");
 
+        if (operatorId != null) {
+            caseInfo.setRegisterOperatorId(operatorId);
+            caseInfo.setRegisterOperatorName(resolveOperatorName(operatorId));
+            caseInfoMapper.updateById(caseInfo);
+        }
+
         caseTimerService.onCaseReported(caseInfo.getId(), caseInfo.getCaseCode(), caseInfo.getReportTime());
-        notifyAllAcceptorsNewCase(caseInfo);
+        notifyAllAcceptorsNewCase(caseInfo, operatorId);
         return getCaseDetail(caseInfo.getId());
     }
 
@@ -1322,6 +1329,7 @@ public class CaseServiceImpl implements CaseService {
         notifyUserTask(acceptor.getId(), "新案件待结案",
                 "案件 " + updated.getCaseCode() + " 已批转给您，请核实或结案",
                 BIZ_CASE, updated.getId(), updated.getCaseCode());
+        caseTimerService.onCaseAcceptorPendingClose(updated.getId(), updated.getCaseCode(), LocalDateTime.now());
         return updated;
     }
 
@@ -1691,7 +1699,11 @@ public class CaseServiceImpl implements CaseService {
         task.setAssignerId(operatorId);
         String operatorDisplayName = resolveOperatorName(operatorId);
         task.setAssignerName(operatorDisplayName);
+        if (request.getRemark() != null && !request.getRemark().isBlank()) {
+            task.setAssignRemark(request.getRemark().trim());
+        }
         checkTaskMapper.insert(task);
+        caseTimerService.onCheckTaskAssigned(caseInfo.getId(), caseInfo.getCaseCode(), task.getAssignTime());
 
         caseInfo.setCaseStatus(CaseStatusConstant.CHECKING);
         caseInfo.setCheckTaskId(task.getId());
@@ -1750,7 +1762,12 @@ public class CaseServiceImpl implements CaseService {
         task.setCollectorPhone(collector.getPhone());
         task.setCreatorId(operatorId);
         task.setCreatorName(resolveOperatorName(operatorId));
+        if (request.getRemark() != null && !request.getRemark().isBlank()) {
+            task.setAssignRemark(request.getRemark().trim());
+        }
         verifyTaskMapper.insert(task);
+        ensureAcceptCloseTimerBeforeVerify(caseInfo);
+        caseTimerService.onVerifyTaskAssigned(caseInfo.getId(), caseInfo.getCaseCode(), task.getAssignTime());
 
         caseInfo.setVerifyTaskId(task.getId());
         caseInfoMapper.updateById(caseInfo);
@@ -1806,8 +1823,17 @@ public class CaseServiceImpl implements CaseService {
         saveFlowRecord(caseId, caseInfo.getCaseCode(), CaseStatusConstant.CLOSED, "结案",
                 CaseFlowOperateType.CLOSE, remark != null ? remark : "",
                 operatorId, resolveOperatorName(operatorId), null, null);
+        caseTimerService.onCaseClosed(caseId, caseInfo.getCloseTime());
 
         return caseInfo;
+    }
+
+    private void ensureAcceptCloseTimerBeforeVerify(CaseInfo caseInfo) {
+        if (caseInfo == null || caseInfo.getId() == null) {
+            return;
+        }
+        caseTimerService.onCaseAcceptorPendingClose(
+                caseInfo.getId(), caseInfo.getCaseCode(), LocalDateTime.now());
     }
 
     @Override
@@ -2828,13 +2854,35 @@ public class CaseServiceImpl implements CaseService {
     }
 
     private void notifyAllAcceptorsNewCase(CaseInfo caseInfo) {
+        notifyAllAcceptorsNewCase(caseInfo, null);
+    }
+
+    /**
+     * 新案进入待立案时通知受理员。采集员上报通知全员；受理员人工登记时排除登记人本人，且文案区分渠道。
+     */
+    private void notifyAllAcceptorsNewCase(CaseInfo caseInfo, Long excludeUserId) {
         if (userNotificationSender == null || caseInfo == null) {
             return;
         }
         try {
             List<Long> acceptorIds = sysUserMapper.selectUserIdsByRoleCode(ROLE_ACCEPTOR);
+            if (excludeUserId != null) {
+                acceptorIds = acceptorIds.stream()
+                        .filter(id -> !excludeUserId.equals(id))
+                        .toList();
+            }
+            if (acceptorIds.isEmpty()) {
+                return;
+            }
             String addr = caseInfo.getAddress() != null ? caseInfo.getAddress() : "";
-            String content = "采集员上报新案件，请及时立案。地址：" + addr;
+            String content;
+            if (CaseSourceConstant.REGISTER.equals(caseInfo.getSourceType())) {
+                String channel = caseInfo.getSourceDesc() != null && !caseInfo.getSourceDesc().isBlank()
+                        ? caseInfo.getSourceDesc().trim() : "人工登记";
+                content = "受理员登记新案件（" + channel + "），请协同处理。地址：" + addr;
+            } else {
+                content = "采集员上报新案件，请及时立案。地址：" + addr;
+            }
             userNotificationSender.notifyUsers(acceptorIds, "新案件待立案", content,
                     BIZ_CASE, caseInfo.getId(), caseInfo.getCaseCode());
         } catch (Exception e) {

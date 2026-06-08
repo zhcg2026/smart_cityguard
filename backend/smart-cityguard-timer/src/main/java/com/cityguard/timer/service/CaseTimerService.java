@@ -83,6 +83,55 @@ public class CaseTimerService {
         return assignTime.plusMinutes(TimerDefaults.TASK_MINUTES);
     }
 
+    /** 下发核查：暂停受理计时，启动核查任务计时（30分钟连续） */
+    @Transactional
+    public void onCheckTaskAssigned(Long caseId, String caseCode, LocalDateTime assignTime) {
+        pauseStageTimer(caseId, TimerStageConstant.ACCEPT);
+        startStageTimer(caseId, caseCode, TimerStageConstant.CHECK, "核查",
+                "urgent_minute", TimerDefaults.TASK_MINUTES, assignTime);
+    }
+
+    /** 核查完成：结束核查计时，恢复受理计时 */
+    @Transactional
+    public void onCheckTaskCompleted(Long caseId, LocalDateTime finishTime) {
+        finishStageTimer(caseId, TimerStageConstant.CHECK, finishTime);
+        resumeStageTimer(caseId, TimerStageConstant.ACCEPT);
+    }
+
+    /** 下发核实：暂停受理计时，启动核实任务计时（30分钟连续） */
+    @Transactional
+    public void onVerifyTaskAssigned(Long caseId, String caseCode, LocalDateTime assignTime) {
+        pauseStageTimer(caseId, TimerStageConstant.ACCEPT);
+        startStageTimer(caseId, caseCode, TimerStageConstant.VERIFY, "核实",
+                "urgent_minute", TimerDefaults.TASK_MINUTES, assignTime);
+    }
+
+    /** 核实完成：结束核实计时，恢复受理计时 */
+    @Transactional
+    public void onVerifyTaskCompleted(Long caseId, LocalDateTime finishTime) {
+        finishStageTimer(caseId, TimerStageConstant.VERIFY, finishTime);
+        resumeStageTimer(caseId, TimerStageConstant.ACCEPT);
+    }
+
+    /**
+     * 派遣员批转受理员结案：启动结案阶段受理计时（15分钟连续）。
+     * 与立案前受理为同一 stage 的不同轮次，以最新一条 active 记录为准。
+     */
+    @Transactional
+    public void onCaseAcceptorPendingClose(Long caseId, String caseCode, LocalDateTime startTime) {
+        if (caseTimerRecordMapper.selectActiveByCaseAndStage(caseId, TimerStageConstant.ACCEPT) != null) {
+            return;
+        }
+        startStageTimer(caseId, caseCode, TimerStageConstant.ACCEPT, "受理",
+                "urgent_minute", TimerDefaults.ACCEPT_MINUTES, startTime);
+    }
+
+    /** 结案：结束结案阶段受理计时 */
+    @Transactional
+    public void onCaseClosed(Long caseId, LocalDateTime finishTime) {
+        finishStageTimer(caseId, TimerStageConstant.ACCEPT, finishTime);
+    }
+
     public boolean hasActiveHandleTimer(Long caseId) {
         return caseTimerRecordMapper.selectActiveByCaseAndStage(caseId, TimerStageConstant.HANDLE) != null;
     }
@@ -135,10 +184,22 @@ public class CaseTimerService {
         return newDeadline;
     }
 
-    /** 挂账：暂停处置计时（预留） */
+    /** 挂账：暂停处置计时 */
     @Transactional
     public void pauseHandleTimer(Long caseId) {
-        CaseTimerRecord record = caseTimerRecordMapper.selectActiveByCaseAndStage(caseId, TimerStageConstant.HANDLE);
+        pauseStageTimer(caseId, TimerStageConstant.HANDLE);
+    }
+
+    /** 挂账恢复：继续处置计时，截止顺延 */
+    @Transactional
+    public void resumeHandleTimer(Long caseId) {
+        resumeStageTimer(caseId, TimerStageConstant.HANDLE);
+    }
+
+    /** 暂停指定阶段计时（核查/核实等待采集员反馈时暂停受理） */
+    @Transactional
+    public void pauseStageTimer(Long caseId, String stage) {
+        CaseTimerRecord record = caseTimerRecordMapper.selectActiveByCaseAndStage(caseId, stage);
         if (record == null || TimerStatusConstant.PAUSED.equals(record.getTimerStatus())) {
             return;
         }
@@ -147,10 +208,10 @@ public class CaseTimerService {
         caseTimerRecordMapper.updateById(record);
     }
 
-    /** 挂账恢复：继续处置计时，截止顺延 */
+    /** 恢复指定阶段计时，暂停期间不计入已用时长 */
     @Transactional
-    public void resumeHandleTimer(Long caseId) {
-        CaseTimerRecord record = caseTimerRecordMapper.selectActiveByCaseAndStage(caseId, TimerStageConstant.HANDLE);
+    public void resumeStageTimer(Long caseId, String stage) {
+        CaseTimerRecord record = caseTimerRecordMapper.selectActiveByCaseAndStage(caseId, stage);
         if (record == null || !TimerStatusConstant.PAUSED.equals(record.getTimerStatus())) {
             return;
         }
@@ -172,9 +233,11 @@ public class CaseTimerService {
         }
         record.setDeadlineTime(newDeadline);
         caseTimerRecordMapper.updateById(record);
-        jdbcTemplate.update(
-                "UPDATE case_info SET deadline_time = ? WHERE id = ?",
-                newDeadline, caseId);
+        if (TimerStageConstant.HANDLE.equals(stage)) {
+            jdbcTemplate.update(
+                    "UPDATE case_info SET deadline_time = ? WHERE id = ?",
+                    newDeadline, caseId);
+        }
     }
 
     public CaseTimerDisplayInfo buildCaseTimerDisplay(Long caseId) {
@@ -200,11 +263,13 @@ public class CaseTimerService {
         if (caseId == null) {
             return List.of();
         }
-        List<CaseTimerStageDisplay> list = new ArrayList<>(3);
+        List<CaseTimerStageDisplay> list = new ArrayList<>(5);
         for (String stage : new String[]{
                 TimerStageConstant.ACCEPT,
                 TimerStageConstant.DISPATCH,
-                TimerStageConstant.HANDLE
+                TimerStageConstant.HANDLE,
+                TimerStageConstant.CHECK,
+                TimerStageConstant.VERIFY
         }) {
             CaseTimerRecord record = caseTimerRecordMapper.selectLatestByCaseAndStage(caseId, stage);
             if (record == null) {
@@ -266,12 +331,21 @@ public class CaseTimerService {
         return !rows.isEmpty() && rows.get(0) == 1;
     }
 
-    /** 列表展示：优先处置阶段；未派遣时展示进行中的受理/派遣截止 */
+    /** 列表展示：优先进行中的核查/核实；否则处置；再受理/派遣 */
     private CaseTimerRecord resolveDisplayTimerRecord(Long caseId) {
-        CaseTimerRecord handle = caseTimerRecordMapper.selectLatestByCaseAndStage(
+        for (String stage : new String[]{
+                TimerStageConstant.CHECK,
+                TimerStageConstant.VERIFY
+        }) {
+            CaseTimerRecord active = caseTimerRecordMapper.selectActiveByCaseAndStage(caseId, stage);
+            if (active != null) {
+                return active;
+            }
+        }
+        CaseTimerRecord handleActive = caseTimerRecordMapper.selectActiveByCaseAndStage(
                 caseId, TimerStageConstant.HANDLE);
-        if (handle != null) {
-            return handle;
+        if (handleActive != null) {
+            return handleActive;
         }
         for (String stage : new String[]{
                 TimerStageConstant.DISPATCH,
@@ -289,7 +363,7 @@ public class CaseTimerService {
         LocalDateTime now = LocalDateTime.now();
         if (TimerStatusConstant.RUNNING.equals(record.getTimerStatus())
                 || TimerStatusConstant.PAUSED.equals(record.getTimerStatus())) {
-            long remainSec = Duration.between(now, record.getDeadlineTime()).getSeconds();
+            long remainSec = computeActiveRemainingSeconds(record, now);
             info.setHandleRemainingSeconds(remainSec);
             info.setTimeRemaining(formatRemaining(remainSec));
             boolean overdue = remainSec < 0;
@@ -331,8 +405,12 @@ public class CaseTimerService {
 
         LocalDateTime now = LocalDateTime.now();
         if (Boolean.TRUE.equals(item.getActive())) {
-            long remainSec = Duration.between(now, record.getDeadlineTime()).getSeconds();
-            item.setTimeRemaining(formatRemaining(remainSec));
+            long remainSec = computeActiveRemainingSeconds(record, now);
+            if (TimerStatusConstant.PAUSED.equals(record.getTimerStatus())) {
+                item.setTimeRemaining("已暂停 · " + formatRemaining(remainSec));
+            } else {
+                item.setTimeRemaining(formatRemaining(remainSec));
+            }
             item.setTimedOut(remainSec < 0);
         } else if (record.getActualFinishTime() != null) {
             boolean wasTimeout = record.getIsTimeout() != null && record.getIsTimeout() == 1;
@@ -428,6 +506,15 @@ public class CaseTimerService {
             }
         }
         return TimerContext.from(work, holidays);
+    }
+
+    /** 暂停期间冻结剩余展示，恢复后 deadline 已顺延 */
+    private static long computeActiveRemainingSeconds(CaseTimerRecord record, LocalDateTime now) {
+        long remainSec = Duration.between(now, record.getDeadlineTime()).getSeconds();
+        if (TimerStatusConstant.PAUSED.equals(record.getTimerStatus()) && record.getPauseStartTime() != null) {
+            remainSec += Duration.between(record.getPauseStartTime(), now).getSeconds();
+        }
+        return remainSec;
     }
 
     private static String formatRemaining(long remainSec) {

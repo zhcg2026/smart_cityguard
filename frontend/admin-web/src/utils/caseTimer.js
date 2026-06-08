@@ -3,13 +3,17 @@
 const STAGE_DEADLINE_LABEL = {
   accept: '受理截止时间',
   dispatch: '派遣截止时间',
-  handle: '处置截止时间'
+  handle: '处置截止时间',
+  check: '核查截止时间',
+  verify: '核实截止时间'
 }
 
 const STAGE_REMAINING_LABEL = {
   accept: '受理时限',
   dispatch: '派遣时限',
-  handle: '处置时限'
+  handle: '处置时限',
+  check: '核查时限',
+  verify: '核实时限'
 }
 
 export function stageDeadlineLabel(stage) {

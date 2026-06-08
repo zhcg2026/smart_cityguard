@@ -312,6 +312,7 @@
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="核查人">{{ rec.collectorName || '—' }}</el-descriptions-item>
           <el-descriptions-item label="完成时间">{{ formatDateTime(rec.finishTime) }}</el-descriptions-item>
+          <el-descriptions-item v-if="rec.assignRemark" label="核查要求" :span="2">{{ rec.assignRemark }}</el-descriptions-item>
           <el-descriptions-item label="核查结果">{{ rec.checkResultLabel || '—' }}</el-descriptions-item>
           <el-descriptions-item label="核查意见" :span="2">{{ rec.checkOpinion?.trim() || '—' }}</el-descriptions-item>
         </el-descriptions>
@@ -325,6 +326,7 @@
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="核实人">{{ rec.collectorName || '—' }}</el-descriptions-item>
           <el-descriptions-item label="完成时间">{{ formatDateTime(rec.finishTime) }}</el-descriptions-item>
+          <el-descriptions-item v-if="rec.assignRemark" label="核实要求" :span="2">{{ rec.assignRemark }}</el-descriptions-item>
           <el-descriptions-item label="核实结果">{{ rec.verifyResultLabel || '—' }}</el-descriptions-item>
           <el-descriptions-item label="核实意见" :span="2">{{ rec.verifyOpinion?.trim() || '—' }}</el-descriptions-item>
         </el-descriptions>

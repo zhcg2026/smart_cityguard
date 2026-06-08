@@ -22,6 +22,10 @@ public class CheckTaskRecordView {
 
     private String collectorName;
 
+    private String assignRemark;
+
+    private LocalDateTime deadlineTime;
+
     private LocalDateTime assignTime;
 
     private LocalDateTime finishTime;

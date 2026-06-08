@@ -23,6 +23,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +49,7 @@ public class TaskServiceImpl implements TaskService {
             throw new BusinessException("核实任务不存在");
         }
         enrichVerifyFromCase(task);
+        enrichVerifyTimeDisplay(task);
         return task;
     }
 
@@ -58,6 +60,7 @@ public class TaskServiceImpl implements TaskService {
             throw new BusinessException("核查任务不存在");
         }
         enrichCheckFromCase(task);
+        enrichCheckTimeDisplay(task);
         return task;
     }
 
@@ -107,7 +110,11 @@ public class TaskServiceImpl implements TaskService {
         Page<VerifyTask> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<VerifyTask> wrapper = buildVerifyWrapper(params);
         wrapper.orderByDesc(VerifyTask::getCreateTime);
-        return verifyTaskMapper.selectPage(page, wrapper);
+        Page<VerifyTask> result = verifyTaskMapper.selectPage(page, wrapper);
+        for (VerifyTask task : result.getRecords()) {
+            enrichVerifyTimeDisplay(task);
+        }
+        return result;
     }
 
     @Override
@@ -115,7 +122,11 @@ public class TaskServiceImpl implements TaskService {
         Page<CheckTask> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<CheckTask> wrapper = buildCheckWrapper(params);
         wrapper.orderByDesc(CheckTask::getCreateTime);
-        return checkTaskMapper.selectPage(page, wrapper);
+        Page<CheckTask> result = checkTaskMapper.selectPage(page, wrapper);
+        for (CheckTask task : result.getRecords()) {
+            enrichCheckTimeDisplay(task);
+        }
+        return result;
     }
 
     @Override
@@ -197,6 +208,8 @@ public class TaskServiceImpl implements TaskService {
             view.setCheckResultLabel(labelCheckResult(task.getCheckResult()));
             view.setCheckOpinion(task.getCheckOpinion());
             view.setCollectorName(task.getCollectorName());
+            view.setAssignRemark(task.getAssignRemark());
+            view.setDeadlineTime(task.getDeadlineTime());
             view.setAssignTime(task.getAssignTime());
             view.setFinishTime(task.getFinishTime());
             view.setAttachments(toAttachmentViews(checkAttachmentMapper.selectByCheckTaskId(task.getId())));
@@ -223,6 +236,8 @@ public class TaskServiceImpl implements TaskService {
             view.setVerifyResultLabel(labelVerifyResult(task.getVerifyResult()));
             view.setVerifyOpinion(task.getVerifyOpinion());
             view.setCollectorName(task.getCollectorName());
+            view.setAssignRemark(task.getAssignRemark());
+            view.setDeadlineTime(task.getDeadlineTime());
             view.setAssignTime(task.getAssignTime());
             view.setFinishTime(task.getFinishTime());
             view.setAttachments(toAttachmentViews(verifyAttachmentMapper.selectByVerifyTaskId(task.getId())));
@@ -441,6 +456,50 @@ public class TaskServiceImpl implements TaskService {
     }
 
     /** 移动端：passed / not_passed → exist / not_exist */
+    private void enrichCheckTimeDisplay(CheckTask task) {
+        if (task == null) {
+            return;
+        }
+        fillTaskTimeDisplay(task.getTaskStatus(), task.getDeadlineTime(), task::setTimeRemaining, task::setTimedOut);
+    }
+
+    private void enrichVerifyTimeDisplay(VerifyTask task) {
+        if (task == null) {
+            return;
+        }
+        fillTaskTimeDisplay(task.getTaskStatus(), task.getDeadlineTime(), task::setTimeRemaining, task::setTimedOut);
+    }
+
+    private static void fillTaskTimeDisplay(String taskStatus, LocalDateTime deadlineTime,
+                                           java.util.function.Consumer<String> timeRemainingSetter,
+                                           java.util.function.Consumer<Boolean> timedOutSetter) {
+        if (!TaskStatusConstant.PENDING.equals(taskStatus) || deadlineTime == null) {
+            return;
+        }
+        long remainSec = Duration.between(LocalDateTime.now(), deadlineTime).getSeconds();
+        timedOutSetter.accept(remainSec < 0);
+        timeRemainingSetter.accept(formatTaskRemaining(remainSec));
+    }
+
+    private static String formatTaskRemaining(long remainSec) {
+        if (remainSec < 0) {
+            return "超时" + formatTaskDuration(Math.abs(remainSec));
+        }
+        return "剩余" + formatTaskDuration(remainSec);
+    }
+
+    private static String formatTaskDuration(long sec) {
+        long h = sec / 3600;
+        long m = (sec % 3600) / 60;
+        if (h > 0 && m > 0) {
+            return h + "小时" + m + "分";
+        }
+        if (h > 0) {
+            return h + "小时";
+        }
+        return Math.max(1, m) + "分钟";
+    }
+
     private static String mapVerifyResult(String result) {
         if (result == null || result.isBlank()) {
             throw new BusinessException("请填写核实结果");

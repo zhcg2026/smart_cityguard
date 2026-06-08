@@ -2,6 +2,16 @@
   <div class="verify-task-page">
     <van-nav-bar title="核实任务详情" left-arrow @click-left="goBack" />
 
+    <van-notice-bar
+      v-if="timerBanner.show"
+      wrapable
+      :scrollable="false"
+      left-icon="clock-o"
+      :color="timerBanner.overdue ? '#c45656' : '#1989fa'"
+      :background="timerBanner.overdue ? '#fef0f0' : '#ecf5ff'"
+      :text="timerBanner.text"
+    />
+
     <van-cell-group title="案件信息" inset>
       <van-cell title="案件编号" :value="taskInfo.caseNo || taskInfo.caseCode" />
       <van-cell title="案件大类" :value="taskInfo.categoryBigName || taskInfo.bigName" />
@@ -9,6 +19,15 @@
       <van-cell title="发生地址" :value="taskInfo.address" />
       <van-cell title="处置部门" :value="taskInfo.handleDeptName || '—'" />
       <van-cell title="问题描述" :value="taskInfo.description" />
+    </van-cell-group>
+
+    <van-cell-group v-if="taskInfo.assignRemark" title="核实要求" inset>
+      <van-cell>
+        <template #title>
+          <div class="assign-remark">{{ taskInfo.assignRemark }}</div>
+          <div v-if="taskInfo.creatorName" class="assign-meta">下发人：{{ taskInfo.creatorName }}</div>
+        </template>
+      </van-cell>
     </van-cell-group>
 
     <van-cell-group title="核实结果" inset>
@@ -33,8 +52,8 @@
       </van-radio-group>
     </van-cell-group>
 
-    <van-cell-group title="备注说明" inset>
-      <van-field v-model="remark" rows="2" autosize type="textarea" placeholder="请输入备注..." />
+    <van-cell-group title="核实意见" inset>
+      <van-field v-model="remark" rows="2" autosize type="textarea" placeholder="请填写核实意见（选填）" />
     </van-cell-group>
 
     <van-cell-group title="核实照片" inset>
@@ -66,7 +85,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { buildTaskTimerBanner } from '@/utils/taskTimer'
 import { useRouter, useRoute } from 'vue-router'
 import { showToast, showLoadingToast } from 'vant'
 import { getVerifyTaskDetail, executeVerifyTask } from '@/api/task'
@@ -86,6 +106,8 @@ const fileList = ref([])
 const attachments = ref([])
 const uploadError = ref('')
 const submitting = ref(false)
+
+const timerBanner = computed(() => buildTaskTimerBanner(taskInfo.value))
 
 onMounted(async () => {
   try {
@@ -201,5 +223,15 @@ function goBack() {
 }
 .submit-btn {
   padding: 16px;
+}
+.assign-remark {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  color: #323233;
+}
+.assign-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #969799;
 }
 </style>

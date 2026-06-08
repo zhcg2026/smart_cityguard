@@ -569,6 +569,7 @@ CREATE TABLE verify_task (
     -- 创建人信息
     creator_id BIGINT NOT NULL COMMENT '创建人ID',
     creator_name VARCHAR(50) COMMENT '创建人姓名',
+    assign_remark VARCHAR(500) COMMENT '下发要求/备注',
 
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -647,6 +648,7 @@ CREATE TABLE check_task (
     -- 指派人信息
     assigner_id BIGINT COMMENT '指派人ID',
     assigner_name VARCHAR(50) COMMENT '指派人姓名',
+    assign_remark VARCHAR(500) COMMENT '下发要求/备注',
 
     -- 返工次数
     rework_count INT DEFAULT 0 COMMENT '返工次数',

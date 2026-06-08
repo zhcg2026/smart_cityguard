@@ -4,6 +4,48 @@
 
 ---
 
+## 2026-06-09 工作小结（核查/核实时限 + 任务要求展示 + 采集端与通知修复）
+
+### 当日摘要
+
+1. **核查/核实与受理计时联动**：
+   - 下发核查/核实时 **暂停受理计时**，采集员反馈后 **恢复**；核查/核实任务独立 **30 分钟**计时（`case_timer_record` check/verify 阶段）。
+   - 派遣员批转受理员结案时启动结案阶段受理计时；结案时结束。
+   - 列表/详情优先展示进行中的核查/核实时限；暂停时显示「已暂停 · 剩余xx」。
+2. **核查/核实任务要求与剩余时间**：
+   - 任务表新增 `assign_remark`（补丁 `patch_task_assign_remark.sql`）；下发时保存受理员备注。
+   - 采集端任务详情展示「核查/核实要求」+ 顶部剩余/截止；列表与首页待办显示剩余时间。
+   - 管理端反馈卡片展示下发要求。
+3. **采集端首页片区名**：
+   - 登录/刷新时从 `/geo/resp-grid/collector/{userId}` 拉取绑定片区，显示在姓名下方（文案改为「未绑定片区」）。
+4. **受理员人工登记通知**：
+   - 电话等渠道登记不再给 **登记人本人** 发「采集员上报」类消息；其他受理员收到「受理员登记新案件（渠道）」；登记时写入 `registerOperatorId`。
+5. **环境**：已执行 `patch_task_assign_remark.sql`（本机 `cityguard`）。
+
+| 层 | 内容 |
+|----|------|
+| **库** | `patch_task_assign_remark.sql`；`init.sql` 同步 |
+| **后端·timer** | 受理暂停/恢复、核查/核实 30min、`onCaseAcceptorPendingClose` |
+| **后端·task** | `assign_remark`、`timeRemaining` 展示 enrich |
+| **后端·case** | 下发保存备注、登记通知文案与排除登记人 |
+| **前端·管理端** | `caseTimer.js` 核查/核实标签；详情反馈要求 |
+| **前端·采集端** | `taskTimer.js`、任务详情/列表/首页、user store 片区 |
+
+### 联调注意
+
+- 改 **timer/task/case** 后须 `mvn clean install -pl smart-cityguard-timer,smart-cityguard-task,smart-cityguard-case -am -DskipTests` 并重启 8080。
+- 新任务才带 `assign_remark`；旧核查/核实任务需重新下发才有要求备注。
+
+### 明天优先（接续）
+
+1. 核查/核实时限 + 要求备注 + 受理暂停 **全链路复测**（新下发任务）。
+2. 受理员电话登记：本人无「采集员上报」通知，其他受理员文案正确。
+3. 继续 **`TEST_CHECKLIST.md`** 阶段 0 验收。
+
+**GitHub**：已同步 master。
+
+---
+
 ## 2026-06-07 工作小结（流程接收人/状态一致 + 详情 UX + 采集端待办与通知）
 
 ### 当日摘要

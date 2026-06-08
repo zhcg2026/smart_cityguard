@@ -3,7 +3,9 @@
 const STAGE_DEADLINE_LABEL = {
   accept: '受理截止',
   dispatch: '派遣截止',
-  handle: '处置截止'
+  handle: '处置截止',
+  check: '核查截止',
+  verify: '核实截止'
 }
 
 export function stageDeadlineLabel(stage) {

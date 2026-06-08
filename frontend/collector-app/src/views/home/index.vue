@@ -6,7 +6,7 @@
         <van-image round width="40" height="40" :src="userInfo.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
         <div class="info">
           <div class="name">{{ userInfo.realName || '采集员' }}</div>
-          <div class="grid">{{ userInfo.gridName || '未绑定网格' }}</div>
+          <div class="grid">{{ gridDisplayName }}</div>
         </div>
       </div>
       <van-icon name="bell" size="24" @click="goMessage" />
@@ -109,11 +109,16 @@ import {
   getAnnouncementList,
   getAnnouncementDetail
 } from '@/api/message'
+import { formatTaskRemaining, formatDateTimeShort } from '@/utils/taskTimer'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const userInfo = computed(() => userStore.userInfo)
+const gridDisplayName = computed(() => {
+  const name = userInfo.value?.gridName?.trim()
+  return name || '未绑定片区'
+})
 const dailyTips = ref([])
 const announcements = ref([])
 const pendingTasks = ref([])
@@ -135,11 +140,13 @@ const statusLabel = (s) =>
     not_accepted: '不受理'
   }[s] || s)
 
-function formatTaskDeadline(value) {
-  if (!value) return '截止时间：—'
-  const text = String(value).replace('T', ' ')
-  const slice = text.length >= 16 ? text.slice(0, 16) : text
-  return `截止时间：${slice}`
+function formatTaskDeadlineLine(task) {
+  const remain = formatTaskRemaining(task)
+  const deadline = formatDateTimeShort(task.deadlineTime)
+  const parts = []
+  if (remain) parts.push(remain)
+  if (deadline) parts.push(`截止 ${deadline}`)
+  return parts.join(' · ') || '截止时间：—'
 }
 
 function mapPendingTask(task, type) {
@@ -147,7 +154,7 @@ function mapPendingTask(task, type) {
     id: task.id,
     type,
     title: task.caseCode || task.caseNo || task.taskCode || '任务',
-    deadline: formatTaskDeadline(task.deadlineTime)
+    deadline: formatTaskDeadlineLine(task)
   }
 }
 
@@ -239,6 +246,11 @@ onMounted(async () => {
   userStore.initUser()
   if (!getToken()) {
     return
+  }
+  try {
+    await userStore.getUserInfo()
+  } catch {
+    /* 使用本地缓存 */
   }
   await reloadHome()
   window.addEventListener('cityguard:refresh-lists', reloadHome)

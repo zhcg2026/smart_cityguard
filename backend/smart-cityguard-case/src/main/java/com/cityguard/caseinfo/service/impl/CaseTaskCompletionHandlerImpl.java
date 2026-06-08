@@ -10,6 +10,7 @@ import com.cityguard.task.entity.CheckTask;
 import com.cityguard.task.entity.VerifyTask;
 import com.cityguard.task.mapper.CheckTaskMapper;
 import com.cityguard.task.mapper.VerifyTaskMapper;
+import com.cityguard.timer.service.CaseTimerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,7 @@ public class CaseTaskCompletionHandlerImpl implements CaseTaskCompletionHandler 
     private final CheckTaskMapper checkTaskMapper;
     private final VerifyTaskMapper verifyTaskMapper;
     private final JdbcTemplate jdbcTemplate;
+    private final CaseTimerService caseTimerService;
 
     @Autowired(required = false)
     private UserNotificationSender userNotificationSender;
@@ -51,6 +53,8 @@ public class CaseTaskCompletionHandlerImpl implements CaseTaskCompletionHandler 
         caseInfo.setCheckTaskId(taskId);
         caseInfo.setCaseStatus(CaseStatusConstant.PENDING_REGISTER);
         caseInfoMapper.updateById(caseInfo);
+        LocalDateTime finishTime = task.getFinishTime() != null ? task.getFinishTime() : LocalDateTime.now();
+        caseTimerService.onCheckTaskCompleted(caseInfo.getId(), finishTime);
 
         String opinion = (checkOpinion != null && !checkOpinion.isBlank())
                 ? checkOpinion
@@ -77,6 +81,8 @@ public class CaseTaskCompletionHandlerImpl implements CaseTaskCompletionHandler 
         }
         caseInfo.setVerifyTaskId(taskId);
         caseInfoMapper.updateById(caseInfo);
+        LocalDateTime finishTime = task.getFinishTime() != null ? task.getFinishTime() : LocalDateTime.now();
+        caseTimerService.onVerifyTaskCompleted(caseInfo.getId(), finishTime);
 
         String opinion = (verifyOpinion != null && !verifyOpinion.isBlank())
                 ? verifyOpinion

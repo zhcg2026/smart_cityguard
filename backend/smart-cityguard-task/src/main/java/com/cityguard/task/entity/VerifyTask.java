@@ -66,6 +66,9 @@ public class VerifyTask {
 
     private String creatorName;
 
+    /** 受理员下发核实时的要求/备注 */
+    private String assignRemark;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
@@ -77,6 +80,12 @@ public class VerifyTask {
 
     @TableField(exist = false)
     private String handleDeptName;
+
+    @TableField(exist = false)
+    private String timeRemaining;
+
+    @TableField(exist = false)
+    private Boolean timedOut;
 
     @JsonProperty("taskNo")
     public String getTaskNo() {
