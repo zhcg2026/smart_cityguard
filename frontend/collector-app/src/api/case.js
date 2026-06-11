@@ -58,7 +58,8 @@ export function applyCaseAdjustment(data) {
   return request({
     url: '/case/adjustment/apply',
     method: 'post',
-    data
+    data,
+    skipErrorToast: true
   })
 }
 

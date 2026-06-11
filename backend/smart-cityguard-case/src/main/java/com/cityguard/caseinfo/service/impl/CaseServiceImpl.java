@@ -1137,8 +1137,12 @@ public class CaseServiceImpl implements CaseService {
                 departmentId, deptName);
 
         notifyDeptUsersNewCase(updated, deptName);
+        boolean fromDeptReturn = CaseStatusConstant.RETURNED.equals(st);
+        boolean sameHandleDept = Objects.equals(loaded.getHandleDeptId(), departmentId);
+        boolean resumePausedHandle = fromDeptReturn && sameHandleDept;
+        boolean restartHandleTimer = fromDeptReturn && !sameHandleDept;
         caseTimerService.onCaseDispatched(updated.getId(), updated.getCaseCode(),
-                updated.getSmallId(), updated.getStandardId(), now);
+                updated.getSmallId(), updated.getStandardId(), now, resumePausedHandle, restartHandleTimer);
         return updated;
     }
 
@@ -1389,7 +1393,10 @@ public class CaseServiceImpl implements CaseService {
                 CaseFlowOperateType.RETURN, flowRemark, operatorId, operatorName,
                 dispatcherId, dispatcherName);
 
-        return updated;
+        caseTimerService.onCaseDeptReturnedToDispatcher(
+                caseId, updated.getCaseCode(), LocalDateTime.now());
+
+        return getCaseDetail(caseId);
     }
 
     @Override
@@ -1435,7 +1442,10 @@ public class CaseServiceImpl implements CaseService {
                 CaseFlowOperateType.REVOKE_ASSIGN, flowRemark, operatorId, operatorName,
                 handlerId, handlerName);
 
-        return updated;
+        caseAdjustmentService.voidPendingAdjustmentsOnHandlerUnassign(
+                caseId, handlerId, flowRemark, operatorId, operatorName);
+
+        return getCaseDetail(caseId);
     }
 
     @Override
@@ -1517,7 +1527,10 @@ public class CaseServiceImpl implements CaseService {
                 CaseFlowOperateType.RETURN, flowRemark, operatorId, resolveOperatorName(operatorId),
                 null, updated.getHandleDeptName());
 
-        return updated;
+        caseAdjustmentService.voidPendingAdjustmentsOnHandlerUnassign(
+                caseId, operatorId, flowRemark, operatorId, resolveOperatorName(operatorId));
+
+        return getCaseDetail(caseId);
     }
 
     @Override

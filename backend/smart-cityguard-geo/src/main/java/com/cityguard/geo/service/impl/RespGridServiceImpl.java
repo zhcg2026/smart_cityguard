@@ -7,6 +7,8 @@ import com.cityguard.geo.entity.ResponsibilityGrid;
 import com.cityguard.geo.mapper.RespGridCollectorMapper;
 import com.cityguard.geo.mapper.ResponsibilityGridMapper;
 import com.cityguard.common.exception.BusinessException;
+import com.cityguard.auth.entity.SysUser;
+import com.cityguard.auth.mapper.SysUserMapper;
 import com.cityguard.geo.service.RespGridService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,8 +34,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RespGridServiceImpl implements RespGridService {
 
+    private static final String ROLE_COLLECTOR = "COLLECTOR";
+
     private final ResponsibilityGridMapper respGridMapper;
     private final RespGridCollectorMapper collectorMapper;
+    private final SysUserMapper userMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -170,7 +175,11 @@ public class RespGridServiceImpl implements RespGridService {
                 }
             }
         }
+        Set<Long> activeCollectorIds = loadActiveCollectorUserIds();
         for (Long uid : unique) {
+            if (!activeCollectorIds.contains(uid)) {
+                throw new BusinessException("采集员不存在、已停用或已删除，无法分配片区");
+            }
             RespGridCollector row = new RespGridCollector();
             row.setRespGridId(respGridId);
             row.setUserId(uid);
@@ -261,13 +270,32 @@ public class RespGridServiceImpl implements RespGridService {
         Map<Long, List<Long>> byGrid = links.stream()
                 .collect(Collectors.groupingBy(RespGridCollector::getRespGridId,
                         Collectors.mapping(RespGridCollector::getUserId, Collectors.toList())));
+        Set<Long> activeCollectorIds = loadActiveCollectorUserIds();
         for (ResponsibilityGrid g : grids) {
             List<Long> uids = new ArrayList<>(byGrid.getOrDefault(g.getId(), Collections.emptyList()));
             if (g.getUserId() != null && !uids.contains(g.getUserId())) {
                 uids.add(g.getUserId());
             }
+            uids.removeIf(uid -> uid == null || !activeCollectorIds.contains(uid));
             g.setCollectorUserIds(uids);
         }
+    }
+
+    /** 有效采集员：未删除、启用、具备 COLLECTOR 角色 */
+    private Set<Long> loadActiveCollectorUserIds() {
+        List<Long> roleMatched = userMapper.selectUserIdsByRoleCode(ROLE_COLLECTOR);
+        if (roleMatched == null || roleMatched.isEmpty()) {
+            return Collections.emptySet();
+        }
+        List<SysUser> users = userMapper.selectBatchIds(roleMatched);
+        if (users == null || users.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return users.stream()
+                .filter(u -> u != null && u.getStatus() != null && u.getStatus() == 1)
+                .map(SysUser::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
     }
 
     private String generateCode() {

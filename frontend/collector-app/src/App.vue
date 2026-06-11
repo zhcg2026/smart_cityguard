@@ -55,6 +55,16 @@ body {
   color: #fff !important;
 }
 
+/* 普通提示 Toast：避免白底白字 */
+.collector-app-toast {
+  max-width: 92vw !important;
+  padding: 12px 16px !important;
+  line-height: 1.45 !important;
+  word-break: break-word !important;
+  background: rgba(50, 50, 50, 0.94) !important;
+  color: #fff !important;
+}
+
 /* 顶部新消息/任务 Notify：避免白底白字 */
 .collector-push-notify {
   max-width: 100% !important;

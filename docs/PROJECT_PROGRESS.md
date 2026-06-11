@@ -4,6 +4,56 @@
 
 ---
 
+## 2026-06-12 工作小结（片区脏数据 + 发布人统一 + 延期审批失效 + 回退派遣计时）
+
+### 当日摘要
+
+1. **片区管理「用户#19」脏数据**：
+   - 原因：用户已逻辑删除，但 `responsibility_grid_collector` 仍有关联；前端采集员列表查不到则显示 `用户#id`。
+   - 删除用户时通过 `UserLifecycleCleanup` SPI 自动解绑片区；分配采集员校验有效 COLLECTOR；查询时过滤无效 ID。
+   - 库补丁 `patch_cleanup_orphan_grid_collectors.sql`（可重复执行）。
+2. **今日提示 / 公文通告发布人**：
+   - 统一从 `sys_user.real_name` 解析展示名；列表/详情按 `publisher_id` 回填，修正历史「admin / 管理员」混显。
+3. **采集端延期申请 Toast 白框**：
+   - 新增 `toastFeedback.js`；全局/处置详情 Toast 深底白字；延期接口 `skipErrorToast` 避免重复弹窗。
+4. **撤销指派后延期/挂账申请失效**：
+   - 解除指派或处置人员回退部门时，作废该人 `pending_dept` / `pending` 申请（`cancelled`）。
+   - 部门初审校验案件仍处置中且指派未变；部门待审列表仅「处置中+已指派」；详情审批按钮同步守卫。
+5. **部门回退派遣员后的计时规则**（核心）：
+   - 部门回退派遣员：**暂停**处置计时，**启动**派遣员派遣计时（15 分钟连续）。
+   - 派遣员派回**原部门**：**恢复**暂停的处置计时（剩余时间接续）。
+   - 派遣员派给**其他部门**：处置计时**重新起算**。
+   - 列表展示：处置暂停且派遣计时进行中时，优先显示派遣 15 分钟。
+
+| 层 | 内容 |
+|----|------|
+| **库** | `patch_cleanup_orphan_grid_collectors.sql` |
+| **后端·common** | `UserLifecycleCleanup` SPI |
+| **后端·auth** | 删用户解绑片区关联 |
+| **后端·geo** | 采集员校验、`RespGridUserLifecycleCleanup` |
+| **后端·message** | `PublisherDisplayNameHelper`、发布人回填 |
+| **后端·case** | 延期申请作废、部门审批守卫 |
+| **后端·timer** | `onCaseDeptReturnedToDispatcher`、同部门恢复/改派重置 |
+| **前端·管理端** | `GridManage`、`CaseDetail` 延期审批显示 |
+| **前端·采集端** | `toastFeedback.js`、`HandleDetail` 延期提示 |
+
+### 联调注意
+
+- 改 **geo/auth** → `mvn install -pl smart-cityguard-geo,smart-cityguard-auth -am -DskipTests`
+- 改 **case/timer** → `mvn install -pl smart-cityguard-case,smart-cityguard-timer -am -DskipTests`
+- 改 **message** → `mvn install -pl smart-cityguard-message -am -DskipTests`
+- 以上合并：`mvn clean install -pl smart-cityguard-case,smart-cityguard-timer,smart-cityguard-message,smart-cityguard-geo,smart-cityguard-auth,smart-cityguard-common -am -DskipTests` 后重启 8080。
+
+### 明天优先（接续）
+
+1. 部门回退 → 派遣 15min → 原部门恢复计时 / 改派重置 **全链路复测**。
+2. 撤销指派后延期按钮与审批入口不再出现；采集端延期 Toast 可读。
+3. 继续 **`TEST_CHECKLIST.md`** 阶段 0 验收。
+
+**GitHub**：已同步 master。
+
+---
+
 ## 2026-06-09 工作小结（核查/核实时限 + 任务要求展示 + 采集端与通知修复）
 
 ### 当日摘要

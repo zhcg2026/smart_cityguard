@@ -342,9 +342,10 @@ function collectorCount(item) {
 }
 
 function collectorShortLabel(uid) {
-  const u = collectorList.value.find((x) => x.id === uid)
+  const id = Number(uid)
+  const u = collectorList.value.find((x) => Number(x.id) === id)
   if (u) return collectorLabel(u)
-  return `用户#${uid}`
+  return `已删除用户#${uid}`
 }
 
 // ==================== 操作 ====================

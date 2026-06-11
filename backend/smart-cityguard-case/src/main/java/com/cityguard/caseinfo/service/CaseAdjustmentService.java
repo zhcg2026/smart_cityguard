@@ -27,6 +27,12 @@ public interface CaseAdjustmentService {
 
     void enrichCaseDetail(CaseInfo caseInfo);
 
+    /**
+     * 处置人员解除指派时，作废其发起且仍在审批中的延期/挂账申请。
+     */
+    void voidPendingAdjustmentsOnHandlerUnassign(Long caseId, Long unassignedHandlerId,
+                                                 String voidReason, Long operatorId, String operatorName);
+
     void assertCaseOperable(CaseInfo caseInfo);
 
     /** 挂账到期自动恢复（定时任务） */

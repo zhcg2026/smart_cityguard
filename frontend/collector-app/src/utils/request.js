@@ -1,7 +1,7 @@
 import axios from 'axios'
-import { showToast } from 'vant'
 import { getToken, removeToken } from '@/utils/auth'
 import router from '@/router'
+import { showAppFailToast } from '@/utils/toastFeedback'
 
 const service = axios.create({
   baseURL: '/api',
@@ -25,7 +25,9 @@ service.interceptors.response.use(
   response => {
     const res = response.data
     if (res.code !== 200) {
-      showToast(res.message || '请求失败')
+      if (!response.config?.skipErrorToast) {
+        showAppFailToast(res.message || '请求失败')
+      }
       if (res.code === 401) {
         removeToken()
         localStorage.removeItem('userInfo')
@@ -47,14 +49,14 @@ service.interceptors.response.use(
 
     // Spring Security 未认证/令牌失效时返回 HTTP 401（无业务 code 包装）
     if (status === 401) {
-      showToast(msg || '登录已失效，请重新登录')
+      showAppFailToast(msg || '登录已失效，请重新登录')
       removeToken()
       localStorage.removeItem('userInfo')
       router.push('/login')
       return Promise.reject(error)
     }
 
-    showToast(msg || error.message || '网络错误')
+    showAppFailToast(msg || error.message || '网络错误')
     return Promise.reject(error)
   }
 )

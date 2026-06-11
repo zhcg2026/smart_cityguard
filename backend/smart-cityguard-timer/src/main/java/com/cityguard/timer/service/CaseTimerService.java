@@ -56,16 +56,46 @@ public class CaseTimerService {
     }
 
     /**
-     * 派遣至部门：结束派遣计时，启动处置计时（若已有进行中的处置计时不重置，退回重办继续计时）。
+     * 处置部门回退派遣员：暂停处置计时，启动派遣员派遣计时（15 分钟连续）。
+     */
+    @Transactional
+    public void onCaseDeptReturnedToDispatcher(Long caseId, String caseCode, LocalDateTime returnTime) {
+        pauseStageTimer(caseId, TimerStageConstant.HANDLE);
+        startStageTimer(caseId, caseCode, TimerStageConstant.DISPATCH, "派遣",
+                "urgent_minute", TimerDefaults.DISPATCH_MINUTES, returnTime);
+    }
+
+    /**
+     * 派遣至部门：结束派遣计时。
+     * resumePausedHandle：部门回退后派回原部门，恢复已暂停的处置计时。
+     * restartHandleTimer：部门回退后改派其他部门，结束旧处置计时并重新起算。
      */
     @Transactional
     public void onCaseDispatched(Long caseId, String caseCode, Long smallId, Long standardId,
-                                 LocalDateTime dispatchTime) {
+                                 LocalDateTime dispatchTime, boolean resumePausedHandle,
+                                 boolean restartHandleTimer) {
         finishStageTimer(caseId, TimerStageConstant.DISPATCH, dispatchTime);
-        if (hasActiveHandleTimer(caseId)) {
+
+        if (resumePausedHandle && !restartHandleTimer) {
+            CaseTimerRecord pausedHandle = caseTimerRecordMapper.selectActiveByCaseAndStage(
+                    caseId, TimerStageConstant.HANDLE);
+            if (pausedHandle != null && TimerStatusConstant.PAUSED.equals(pausedHandle.getTimerStatus())) {
+                resumeStageTimer(caseId, TimerStageConstant.HANDLE);
+                return;
+            }
+            if (pausedHandle != null && TimerStatusConstant.RUNNING.equals(pausedHandle.getTimerStatus())) {
+                log.debug("Case {} handle timer already running, skip restart", caseId);
+                return;
+            }
+        }
+
+        if (restartHandleTimer) {
+            finishHandleStageIfActive(caseId, dispatchTime);
+        } else if (hasActiveHandleTimer(caseId)) {
             log.debug("Case {} handle timer already running, skip restart", caseId);
             return;
         }
+
         ResolvedTimeLimit limit = resolveHandleTimeLimit(smallId, standardId);
         startStageTimer(caseId, caseCode, TimerStageConstant.HANDLE, "处置",
                 limit.getTimeLimitType(), limit.getTimeLimitValue(), dispatchTime);
@@ -342,13 +372,21 @@ public class CaseTimerService {
                 return active;
             }
         }
+        CaseTimerRecord dispatchActive = caseTimerRecordMapper.selectActiveByCaseAndStage(
+                caseId, TimerStageConstant.DISPATCH);
         CaseTimerRecord handleActive = caseTimerRecordMapper.selectActiveByCaseAndStage(
                 caseId, TimerStageConstant.HANDLE);
+        if (dispatchActive != null && handleActive != null
+                && TimerStatusConstant.PAUSED.equals(handleActive.getTimerStatus())) {
+            return dispatchActive;
+        }
         if (handleActive != null) {
             return handleActive;
         }
+        if (dispatchActive != null) {
+            return dispatchActive;
+        }
         for (String stage : new String[]{
-                TimerStageConstant.DISPATCH,
                 TimerStageConstant.ACCEPT
         }) {
             CaseTimerRecord active = caseTimerRecordMapper.selectActiveByCaseAndStage(caseId, stage);
@@ -451,6 +489,14 @@ public class CaseTimerService {
         record.setIsTimeout(0);
         record.setIsBundled(0);
         caseTimerRecordMapper.insert(record);
+    }
+
+    private void finishHandleStageIfActive(Long caseId, LocalDateTime finishTime) {
+        CaseTimerRecord record = caseTimerRecordMapper.selectActiveByCaseAndStage(
+                caseId, TimerStageConstant.HANDLE);
+        if (record != null) {
+            finishStageTimer(caseId, TimerStageConstant.HANDLE, finishTime);
+        }
     }
 
     private void finishStageTimer(Long caseId, String stage, LocalDateTime finishTime) {

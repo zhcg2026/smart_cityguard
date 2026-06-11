@@ -11,6 +11,8 @@ public final class CaseAdjustmentConstant {
     public static final String STATUS_PENDING = "pending";
     public static final String STATUS_APPROVED = "approved";
     public static final String STATUS_REJECTED = "rejected";
+    /** 解除指派等流程变更导致申请失效 */
+    public static final String STATUS_CANCELLED = "cancelled";
 
     public static final int MAX_EXTENSION_APPROVED = 2;
     public static final int MAX_SUSPEND_APPROVED = 1;

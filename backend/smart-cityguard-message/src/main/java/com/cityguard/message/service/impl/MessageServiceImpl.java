@@ -1,6 +1,8 @@
 package com.cityguard.message.service.impl;
 
 import com.cityguard.auth.entity.LoginUser;
+import com.cityguard.auth.entity.SysUser;
+import com.cityguard.auth.mapper.SysUserMapper;
 import com.cityguard.common.exception.BusinessException;
 import com.cityguard.message.entity.Announcement;
 import com.cityguard.message.entity.DailyTip;
@@ -10,13 +12,20 @@ import com.cityguard.message.mapper.DailyTipMapper;
 import com.cityguard.message.mapper.UserMessageMapper;
 import com.cityguard.message.service.MessageService;
 import com.cityguard.message.util.ContentVisibilityHelper;
+import com.cityguard.message.util.PublisherDisplayNameHelper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
@@ -28,6 +37,7 @@ public class MessageServiceImpl implements MessageService {
     private final UserMessageMapper userMessageMapper;
     private final AnnouncementMapper announcementMapper;
     private final DailyTipMapper dailyTipMapper;
+    private final SysUserMapper sysUserMapper;
 
     @Override
     public List<UserMessage> getUserMessages(Long userId) {
@@ -61,13 +71,17 @@ public class MessageServiceImpl implements MessageService {
         if (limit != null && limit > 0) {
             stream = stream.limit(limit);
         }
-        return stream.toList();
+        List<Announcement> list = stream.toList();
+        enrichAnnouncementPublisherNames(list);
+        return list;
     }
 
     @Override
     public List<Announcement> listAnnouncementsForAdmin(LoginUser operator) {
         assertContentAdmin(operator);
-        return announcementMapper.selectAllAdmin();
+        List<Announcement> list = announcementMapper.selectAllAdmin();
+        enrichAnnouncementPublisherNames(list);
+        return list;
     }
 
     @Override
@@ -76,6 +90,7 @@ public class MessageServiceImpl implements MessageService {
         if (announcement == null || announcement.getIsDeleted() != null && announcement.getIsDeleted() == 1) {
             throw new BusinessException("通告不存在");
         }
+        enrichAnnouncementPublisherNames(List.of(announcement));
         return announcement;
     }
 
@@ -92,7 +107,7 @@ public class MessageServiceImpl implements MessageService {
                 announcement.setAnnouncementCode("ANN" + CODE_TIME.format(now));
             }
             announcement.setPublisherId(operator.getId());
-            announcement.setPublisherName(operator.getRealName() != null ? operator.getRealName() : operator.getUsername());
+            announcement.setPublisherName(resolvePublisherName(operator.getId()));
             announcement.setPublisherDeptId(operator.getDepartmentId());
             announcement.setPublisherDeptName(operator.getDepartmentName());
             announcement.setPublishTime(now);
@@ -156,13 +171,17 @@ public class MessageServiceImpl implements MessageService {
         if (limit != null && limit > 0) {
             stream = stream.limit(limit);
         }
-        return stream.toList();
+        List<DailyTip> list = stream.toList();
+        enrichDailyTipPublisherNames(list);
+        return list;
     }
 
     @Override
     public List<DailyTip> listDailyTipsForAdmin(LoginUser operator) {
         assertContentAdmin(operator);
-        return dailyTipMapper.selectAllAdmin();
+        List<DailyTip> list = dailyTipMapper.selectAllAdmin();
+        enrichDailyTipPublisherNames(list);
+        return list;
     }
 
     @Override
@@ -171,6 +190,7 @@ public class MessageServiceImpl implements MessageService {
         if (tip == null || tip.getIsDeleted() != null && tip.getIsDeleted() == 1) {
             throw new BusinessException("今日提示不存在");
         }
+        enrichDailyTipPublisherNames(List.of(tip));
         return tip;
     }
 
@@ -187,7 +207,7 @@ public class MessageServiceImpl implements MessageService {
                 dailyTip.setTipCode("TIP" + CODE_TIME.format(now));
             }
             dailyTip.setPublisherId(operator.getId());
-            dailyTip.setPublisherName(operator.getRealName() != null ? operator.getRealName() : operator.getUsername());
+            dailyTip.setPublisherName(resolvePublisherName(operator.getId()));
             dailyTip.setPublishTime(now);
             dailyTip.setCreateTime(now);
             dailyTip.setUpdateTime(now);
@@ -263,6 +283,69 @@ public class MessageServiceImpl implements MessageService {
             dailyTip.setReceiverIds(null);
         } else if (dailyTip.getReceiverIds() == null || dailyTip.getReceiverIds().isBlank()) {
             throw new BusinessException("请指定可见用户或角色");
+        }
+    }
+
+    private String resolvePublisherName(Long publisherId) {
+        if (publisherId == null) {
+            return "系统";
+        }
+        SysUser user = sysUserMapper.selectById(publisherId);
+        return PublisherDisplayNameHelper.fromUser(user);
+    }
+
+    private Map<Long, String> loadPublisherNameMap(Set<Long> publisherIds) {
+        if (publisherIds == null || publisherIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<SysUser> users = sysUserMapper.selectBatchIds(publisherIds);
+        if (users == null || users.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Long, String> map = new HashMap<>();
+        for (SysUser user : users) {
+            if (user != null && user.getId() != null) {
+                map.put(user.getId(), PublisherDisplayNameHelper.fromUser(user));
+            }
+        }
+        return map;
+    }
+
+    private void enrichAnnouncementPublisherNames(List<Announcement> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        Set<Long> ids = list.stream()
+                .map(Announcement::getPublisherId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> nameMap = loadPublisherNameMap(ids);
+        for (Announcement item : list) {
+            if (item.getPublisherId() != null) {
+                String name = nameMap.get(item.getPublisherId());
+                if (name != null) {
+                    item.setPublisherName(name);
+                }
+            }
+        }
+    }
+
+    private void enrichDailyTipPublisherNames(List<DailyTip> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        Set<Long> ids = list.stream()
+                .map(DailyTip::getPublisherId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> nameMap = loadPublisherNameMap(ids);
+        for (DailyTip item : list) {
+            if (item.getPublisherId() != null) {
+                String name = nameMap.get(item.getPublisherId());
+                if (name != null) {
+                    item.setPublisherName(name);
+                }
+            }
         }
     }
 }

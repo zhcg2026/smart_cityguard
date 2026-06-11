@@ -210,7 +210,13 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { showToast, showImagePreview, showLoadingToast, closeToast, showSuccessToast } from 'vant'
+import { showImagePreview, showLoadingToast, closeToast } from 'vant'
+import {
+  extractRequestErrorMessage,
+  showAppFailToast,
+  showAppSuccessToast,
+  showAppToast
+} from '@/utils/toastFeedback'
 import {
   getCaseDetail,
   getCaseAttachments,
@@ -468,7 +474,7 @@ async function loadDetail() {
     const attList = attRes.data || []
     await Promise.all([loadReportImages(attList), loadHandlePhotoBatches(attList)])
   } catch {
-    showToast('获取案件详情失败')
+    showAppFailToast('获取案件详情失败')
   }
 }
 
@@ -492,17 +498,17 @@ async function afterRead(file) {
     closeToast()
   } catch {
     closeToast()
-    showToast('上传失败')
+    showAppFailToast('上传失败')
   }
 }
 
 async function submit() {
   if (!remark.value?.trim()) {
-    showToast('请填写处置说明')
+    showAppToast('请填写处置说明')
     return
   }
   if (attachmentUrls.value.length === 0) {
-    showToast('请至少上传一张处置照片')
+    showAppToast('请至少上传一张处置照片')
     return
   }
 
@@ -513,10 +519,10 @@ async function submit() {
       remark: remark.value.trim(),
       attachments: attachmentUrls.value
     })
-    showSuccessToast('已提交，等待处置部门确认')
+    showAppSuccessToast('已提交，等待处置部门确认')
     router.replace('/handle')
   } catch {
-    showToast('提交失败')
+    showAppFailToast('提交失败')
   } finally {
     submitting.value = false
   }
@@ -533,6 +539,14 @@ function onSuspendDateConfirm({ selectedValues }) {
 }
 
 function openExtensionDialog(type) {
+  if (type === 'extension' && caseInfo.value.hasPendingExtension) {
+    showAppToast('已有延期申请在审批中，请等待处理')
+    return
+  }
+  if (type === 'suspend' && caseInfo.value.hasPendingSuspend) {
+    showAppToast('已有挂账申请在审批中，请等待处理')
+    return
+  }
   extensionApplyType.value = type
   extensionReason.value = ''
   extensionSuspendUntil.value = ''
@@ -545,11 +559,11 @@ async function onExtensionDialogBeforeClose(action) {
   }
   const text = extensionReason.value?.trim()
   if (!text) {
-    showToast('请填写申请原因')
+    showAppToast('请填写申请原因')
     return false
   }
   if (extensionApplyType.value === 'suspend' && !extensionSuspendUntil.value) {
-    showToast('请选择挂账截止日期')
+    showAppToast('请选择挂账截止日期')
     return false
   }
   extensionSubmitting.value = true
@@ -560,12 +574,12 @@ async function onExtensionDialogBeforeClose(action) {
       reason: text,
       suspendUntil: extensionApplyType.value === 'suspend' ? extensionSuspendUntil.value : undefined
     })
-    showSuccessToast('已提交至处置部门审核')
+    showAppSuccessToast('已提交至处置部门审核')
     extensionDialogVisible.value = false
     await loadDetail()
     return true
   } catch (e) {
-    showToast(e?.message || '申请失败')
+    showAppFailToast(extractRequestErrorMessage(e, '申请失败'))
     return false
   } finally {
     extensionSubmitting.value = false
@@ -583,7 +597,7 @@ async function onReturnDialogBeforeClose(action) {
   }
   const text = returnRemark.value?.trim()
   if (!text) {
-    showToast('请填写回退原因')
+    showAppToast('请填写回退原因')
     return false
   }
   returning.value = true
@@ -593,12 +607,12 @@ async function onReturnDialogBeforeClose(action) {
       remark: text,
       clientUpdateTime: caseInfo.value.updateTime ?? null
     })
-    showSuccessToast('已回退至处置部门')
+    showAppSuccessToast('已回退至处置部门')
     returnDialogVisible.value = false
     router.replace('/handle')
     return true
   } catch {
-    showToast('回退失败')
+    showAppFailToast('回退失败')
     return false
   } finally {
     returning.value = false

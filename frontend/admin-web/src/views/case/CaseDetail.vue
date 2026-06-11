@@ -33,7 +33,7 @@
       title="核实任务进行中（可选分支）：请等待采集员提交后再结案；如无需现场核实可直接结案。"
     />
     <el-alert
-      v-if="caseInfo.pendingDeptExtensionApply && canReviewDeptAdjustment"
+      v-if="caseInfo.pendingDeptExtensionApply && canReviewDeptPendingExtension"
       class="view-only-hint"
       type="info"
       :closable="false"
@@ -45,7 +45,7 @@
       </template>
     </el-alert>
     <el-alert
-      v-if="caseInfo.pendingDeptSuspendApply && canReviewDeptAdjustment"
+      v-if="caseInfo.pendingDeptSuspendApply && canReviewDeptPendingSuspend"
       class="view-only-hint"
       type="info"
       :closable="false"
@@ -1092,11 +1092,19 @@ const canReviewDeptAdjustment = computed(() => {
 })
 
 const canReviewDeptPendingExtension = computed(
-  () => canReviewDeptAdjustment.value && !!caseInfo.value.pendingDeptExtensionApply
+  () =>
+    canReviewDeptAdjustment.value &&
+    caseInfo.value.caseStatus === 'handling' &&
+    caseInfo.value.currentHandlerId &&
+    !!caseInfo.value.pendingDeptExtensionApply
 )
 
 const canReviewDeptPendingSuspend = computed(
-  () => canReviewDeptAdjustment.value && !!caseInfo.value.pendingDeptSuspendApply
+  () =>
+    canReviewDeptAdjustment.value &&
+    caseInfo.value.caseStatus === 'handling' &&
+    caseInfo.value.currentHandlerId &&
+    !!caseInfo.value.pendingDeptSuspendApply
 )
 
 function buildRejectedAdjustmentNotice(row, typeLabel) {

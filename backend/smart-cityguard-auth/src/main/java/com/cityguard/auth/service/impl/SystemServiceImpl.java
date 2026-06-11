@@ -10,7 +10,9 @@ import com.cityguard.auth.mapper.SysUserMapper;
 import com.cityguard.auth.mapper.SysDepartmentMapper;
 import com.cityguard.auth.mapper.SysRoleMapper;
 import com.cityguard.auth.service.SystemService;
+import com.cityguard.common.spi.UserLifecycleCleanup;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ public class SystemServiceImpl implements SystemService {
     private final SysDepartmentMapper deptMapper;
     private final SysRoleMapper roleMapper;
     private final PasswordEncoder passwordEncoder;
+    private final ObjectProvider<UserLifecycleCleanup> userLifecycleCleanups;
 
     private static final String ROLE_ADMIN = "ADMIN";
     private static final String ROLE_DEPT = "DEPT";
@@ -336,6 +339,7 @@ public class SystemServiceImpl implements SystemService {
         assertUserMutable(id);
         userMapper.logicDeleteById(id);
         roleMapper.deleteUserRoles(id);
+        userLifecycleCleanups.forEach(cleanup -> cleanup.onUserDeleted(id));
     }
 
     @Override

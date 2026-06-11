@@ -26,7 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -183,8 +185,16 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
                     case_id IN (
                         SELECT id FROM case_info
                         WHERE is_deleted = 0 AND handle_dept_id = {0}
+                          AND case_status = 'handling' AND current_handler_id IS NOT NULL
                     )
                     """, op.getDepartmentId());
+        } else {
+            wrapper.apply("""
+                    case_id IN (
+                        SELECT id FROM case_info
+                        WHERE is_deleted = 0 AND case_status = 'handling' AND current_handler_id IS NOT NULL
+                    )
+                    """);
         }
         Page<CaseAdjustmentApply> result = adjustmentApplyMapper.selectPage(page, wrapper);
         for (CaseAdjustmentApply row : result.getRecords()) {
@@ -220,6 +230,7 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
             throw new BusinessException("关联案件不存在");
         }
         assertDeptCaseScope(caseInfo, operatorId, roles);
+        assertHandlerDeptReviewStillValid(caseInfo, apply);
 
         String remark = request.getReviewRemark() != null ? request.getReviewRemark().trim() : "";
         apply.setDeptReviewerId(operatorId);
@@ -376,6 +387,76 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
     }
 
     @Override
+    @Transactional
+    public void voidPendingAdjustmentsOnHandlerUnassign(Long caseId, Long unassignedHandlerId,
+                                                        String voidReason, Long operatorId, String operatorName) {
+        if (caseId == null || unassignedHandlerId == null) {
+            return;
+        }
+        LambdaQueryWrapper<CaseAdjustmentApply> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(CaseAdjustmentApply::getCaseId, caseId)
+                .in(CaseAdjustmentApply::getApplyStatus,
+                        CaseAdjustmentConstant.STATUS_PENDING_DEPT,
+                        CaseAdjustmentConstant.STATUS_PENDING);
+        List<CaseAdjustmentApply> applies = adjustmentApplyMapper.selectList(wrapper);
+        if (applies.isEmpty()) {
+            return;
+        }
+
+        CaseInfo caseInfo = caseInfoMapper.selectById(caseId);
+        if (caseInfo == null) {
+            return;
+        }
+
+        String remark = voidReason != null && !voidReason.isBlank()
+                ? voidReason.trim()
+                : "处置人员已解除指派，申请自动作废";
+        LocalDateTime now = LocalDateTime.now();
+        String opName = resolveOperatorName(operatorId);
+        if ("系统".equals(opName) && operatorName != null && !operatorName.isBlank()) {
+            opName = operatorName;
+        }
+
+        List<String> voidedLabels = new ArrayList<>();
+        for (CaseAdjustmentApply apply : applies) {
+            if (!shouldVoidOnHandlerUnassign(apply, unassignedHandlerId)) {
+                continue;
+            }
+            String typeLabel = CaseAdjustmentConstant.TYPE_EXTENSION.equals(apply.getApplyType()) ? "延期" : "挂账";
+            voidedLabels.add(typeLabel);
+
+            String originalStatus = apply.getApplyStatus();
+            apply.setApplyStatus(CaseAdjustmentConstant.STATUS_CANCELLED);
+            if (CaseAdjustmentConstant.STATUS_PENDING_DEPT.equals(originalStatus)) {
+                apply.setDeptReviewerId(operatorId);
+                apply.setDeptReviewerName(opName);
+                apply.setDeptReviewTime(now);
+                apply.setDeptReviewRemark(remark);
+            } else {
+                apply.setReviewerId(operatorId);
+                apply.setReviewerName(opName);
+                apply.setReviewTime(now);
+                apply.setReviewRemark(remark);
+            }
+            adjustmentApplyMapper.updateById(apply);
+
+            if (apply.getApplicantId() != null) {
+                notifyUser(apply.getApplicantId(), typeLabel + "申请已作废",
+                        "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel
+                                + "申请因解除指派已自动作废：" + remark,
+                        caseInfo.getId(), caseInfo.getCaseCode());
+            }
+        }
+
+        if (!voidedLabels.isEmpty()) {
+            saveFlowRecord(caseId, caseInfo.getCaseCode(), caseInfo.getCaseStatus(),
+                    "作废延期挂账申请",
+                    "因解除指派，作废在审" + String.join("、", voidedLabels) + "申请：" + remark,
+                    operatorId, opName, unassignedHandlerId, resolveOperatorName(unassignedHandlerId));
+        }
+    }
+
+    @Override
     public void assertCaseOperable(CaseInfo caseInfo) {
         if (caseInfo != null && caseInfo.getIsSuspended() != null && caseInfo.getIsSuspended() == 1) {
             throw new BusinessException("案件挂账中，暂不可操作；挂账恢复后可继续处置");
@@ -407,6 +488,35 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
         saveFlowRecord(caseId, caseInfo.getCaseCode(), caseInfo.getCaseStatus(),
                 "挂账到期恢复", "挂账期届满，处置计时已恢复", 1L, "系统");
         log.info("Case {} suspend auto-resumed", caseId);
+    }
+
+    private static boolean shouldVoidOnHandlerUnassign(CaseAdjustmentApply apply, Long unassignedHandlerId) {
+        if (apply == null || unassignedHandlerId == null) {
+            return false;
+        }
+        if (CaseAdjustmentConstant.STATUS_PENDING_DEPT.equals(apply.getApplyStatus())) {
+            return Objects.equals(apply.getApplicantId(), unassignedHandlerId);
+        }
+        if (CaseAdjustmentConstant.STATUS_PENDING.equals(apply.getApplyStatus())) {
+            return Objects.equals(apply.getApplicantId(), unassignedHandlerId);
+        }
+        return false;
+    }
+
+    private void assertHandlerDeptReviewStillValid(CaseInfo caseInfo, CaseAdjustmentApply apply) {
+        if (!CaseAdjustmentConstant.STATUS_PENDING_DEPT.equals(apply.getApplyStatus())) {
+            return;
+        }
+        if (!CaseStatusConstant.HANDLING.equals(caseInfo.getCaseStatus())) {
+            throw new BusinessException("案件已非处置中，该申请已失效，请刷新页面");
+        }
+        if (caseInfo.getCurrentHandlerId() == null) {
+            throw new BusinessException("案件已解除指派，该申请已失效，请刷新页面");
+        }
+        if (apply.getApplicantId() != null
+                && !Objects.equals(apply.getApplicantId(), caseInfo.getCurrentHandlerId())) {
+            throw new BusinessException("处置人员已变更，该申请已失效，请刷新页面");
+        }
     }
 
     private void assertApplicableStatus(CaseInfo caseInfo) {
@@ -587,6 +697,7 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
             case CaseAdjustmentConstant.STATUS_PENDING -> "待派遣员审批";
             case CaseAdjustmentConstant.STATUS_APPROVED -> "已批准";
             case CaseAdjustmentConstant.STATUS_REJECTED -> "已驳回";
+            case CaseAdjustmentConstant.STATUS_CANCELLED -> "已作废";
             default -> apply.getApplyStatus();
         });
         if (caseInfo != null) {
