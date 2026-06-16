@@ -698,6 +698,12 @@ public class CaseServiceImpl implements CaseService {
                 && !canViewAllPending(roles)) {
             wrapper.eq(CaseInfo::getCaseStatus, CaseStatusConstant.HANDLING)
                     .eq(CaseInfo::getCurrentHandlerId, userId);
+        } else if ("handler_handled".equals(status)
+                && userId != null
+                && roles != null
+                && roles.contains(ROLE_HANDLER)
+                && !canViewAllPending(roles)) {
+            wrapper.apply("id IN (SELECT DISTINCT case_id FROM case_flow_record WHERE operator_id = {0})", userId);
         } else if (CaseStatusConstant.PENDING_CHECK.equals(status)
                 && userId != null
                 && roles != null

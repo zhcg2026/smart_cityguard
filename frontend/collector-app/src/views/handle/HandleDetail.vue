@@ -56,103 +56,118 @@
       />
     </van-cell-group>
 
-    <van-cell-group title="上报照片" inset>
-      <van-grid v-if="reportImages.length" :column-num="3" :border="false">
-        <van-grid-item v-for="(url, idx) in reportImages" :key="idx">
-          <van-image
-            :src="url"
-            fit="cover"
-            width="100%"
-            height="80"
-            @click="previewSingleImage(url)"
-          />
-        </van-grid-item>
-      </van-grid>
-      <van-loading v-else-if="imagesLoading" class="img-loading" size="24px">加载照片中...</van-loading>
-      <van-empty v-else description="暂无上报照片" image-size="60" />
-    </van-cell-group>
-
-    <van-cell-group v-if="handlePhotoBatches.length" title="处置照片" inset>
-      <div class="handle-photo-scroll">
+    <van-cell-group v-if="flowRecords.length" title="流转记录" inset>
+      <div class="flow-timeline">
         <div
-          v-for="batch in handlePhotoBatches"
-          :key="batch.timeKey"
-          class="handle-photo-batch"
+          v-for="(item, index) in flowRecords"
+          :key="item.id"
+          class="flow-item"
         >
-          <p class="handle-photo-batch-time">{{ batch.timeLabel }}</p>
-          <div class="handle-photo-batch-images">
-            <van-image
-              v-for="(url, idx) in batch.images"
-              :key="batch.timeKey + '-' + idx"
-              :src="url"
-              fit="cover"
-              width="112"
-              height="84"
-              class="handle-photo-thumb"
-              @click="previewSingleImage(url)"
-            />
+          <div class="flow-dot" :class="{ 'flow-dot--latest': index === flowRecords.length - 1 }" />
+          <div class="flow-content">
+            <div class="flow-header">
+              <span class="flow-node">{{ item.nodeName || '—' }}</span>
+              <span class="flow-time">{{ formatFlowTime(item.operateTime) }}</span>
+            </div>
+            <div class="flow-meta">
+              <span>操作人：{{ item.operatorName || '—' }}</span>
+              <span v-if="formatFlowReceiver(item)"> · 接收人：{{ formatFlowReceiver(item) }}</span>
+            </div>
+            <div v-if="item.operateOpinion?.trim()" class="flow-opinion">
+              备注：{{ item.operateOpinion.trim() }}
+            </div>
           </div>
         </div>
       </div>
     </van-cell-group>
 
-    <van-cell-group title="处置说明" inset>
-      <van-field
-        v-model="remark"
-        rows="3"
-        autosize
-        type="textarea"
-        maxlength="500"
-        show-word-limit
-        placeholder="请填写现场处置情况..."
-      />
+    <van-cell-group v-if="imagesLoading" title="现场照片" inset>
+      <van-loading class="img-loading" size="24px">加载照片中...</van-loading>
     </van-cell-group>
+    <template v-for="group in stagePhotoGroups" :key="group.nodeCode">
+      <van-cell-group :title="group.label" inset>
+        <div class="handle-photo-scroll">
+          <div
+            v-for="item in group.items"
+            :key="item.url"
+            class="handle-photo-batch"
+          >
+            <p class="handle-photo-batch-time">{{ item.time }}</p>
+            <div class="handle-photo-batch-images">
+              <van-image
+                :src="item.url"
+                fit="cover"
+                width="112"
+                height="84"
+                class="handle-photo-thumb"
+                @click="previewSingleImage(item.url)"
+              />
+            </div>
+          </div>
+        </div>
+      </van-cell-group>
+    </template>
+    <van-empty v-if="!imagesLoading && stagePhotoGroups.length === 0" description="暂无现场照片" image-size="60" />
 
-    <van-cell-group title="处置照片" inset>
-      <van-uploader v-model="fileList" multiple :max-count="6" :after-read="afterRead" />
-    </van-cell-group>
+    <template v-if="canSubmit">
+      <van-cell-group title="处置说明" inset>
+        <van-field
+          v-model="remark"
+          rows="3"
+          autosize
+          type="textarea"
+          maxlength="500"
+          show-word-limit
+          placeholder="请填写现场处置情况..."
+        />
+      </van-cell-group>
 
-    <div class="submit-btn" v-if="canSubmit">
-      <van-button round block type="primary" :loading="submitting" @click="submit">
-        提交处置结果
-      </van-button>
-      <van-button
-        v-if="canApplyExtension"
-        round
-        block
-        plain
-        type="primary"
-        class="return-btn"
-        :loading="extensionSubmitting"
-        @click="openExtensionDialog('extension')"
-      >
-        申请延期
-      </van-button>
-      <van-button
-        v-if="canApplySuspend"
-        round
-        block
-        plain
-        type="primary"
-        class="return-btn"
-        :loading="extensionSubmitting"
-        @click="openExtensionDialog('suspend')"
-      >
-        申请挂账
-      </van-button>
-      <van-button
-        round
-        block
-        plain
-        type="warning"
-        class="return-btn"
-        :loading="returning"
-        @click="openReturnDialog"
-      >
-        回退处置部门
-      </van-button>
-    </div>
-    <van-notice-bar v-else color="#ed6a0c" background="#fffbe8" text="该案件未指派给您，无法提交处置结果" />
+      <van-cell-group title="处置照片" inset>
+        <van-uploader v-model="fileList" multiple :max-count="6" :after-read="afterRead" />
+      </van-cell-group>
+
+      <div class="submit-btn">
+        <van-button round block type="primary" :loading="submitting" @click="submit">
+          提交处置结果
+        </van-button>
+        <van-button
+          v-if="canApplyExtension"
+          round
+          block
+          plain
+          type="primary"
+          class="return-btn"
+          :loading="extensionSubmitting"
+          @click="openExtensionDialog('extension')"
+        >
+          申请延期
+        </van-button>
+        <van-button
+          v-if="canApplySuspend"
+          round
+          block
+          plain
+          type="primary"
+          class="return-btn"
+          :loading="extensionSubmitting"
+          @click="openExtensionDialog('suspend')"
+        >
+          申请挂账
+        </van-button>
+        <van-button
+          round
+          block
+          plain
+          type="warning"
+          class="return-btn"
+          :loading="returning"
+          @click="openReturnDialog"
+        >
+          回退处置部门
+        </van-button>
+      </div>
+    </template>
+    <van-notice-bar v-else-if="caseInfo.caseStatus === 'handling'" color="#ed6a0c" background="#fffbe8" text="该案件未指派给您，无法提交处置结果" />
 
     <van-dialog
       v-model:show="extensionDialogVisible"
@@ -220,6 +235,7 @@ import {
 import {
   getCaseDetail,
   getCaseAttachments,
+  getCaseFlowRecords,
   handleCase,
   handlerReturnDept,
   applyCaseAdjustment,
@@ -236,9 +252,9 @@ const userStore = useUserStore()
 
 const caseInfo = ref({})
 const locationMapKey = ref(0)
-const reportImages = ref([])
-const handlePhotoBatches = ref([])
+const stagePhotoGroups = ref([])
 const imagesLoading = ref(false)
+const flowRecords = ref([])
 const remark = ref('')
 const fileList = ref([])
 const attachmentUrls = ref([])
@@ -273,9 +289,15 @@ const handleTimerBannerText = computed(() => {
 const statusLabel = computed(() => {
   const map = {
     handling: '处置中',
-    handle_finish: '处置人员已处置',
+    handle_finish: '待部门确认',
     pending_check: '待核实',
-    closed: '已结案'
+    checking: '核查中',
+    check_pass: '核查通过',
+    pending_close: '待结案',
+    closed: '已结案',
+    forced_close: '已结案',
+    pending_handle: '待处置',
+    returned: '已回退'
   }
   return map[caseInfo.value.caseStatus] || caseInfo.value.caseStatus || '—'
 })
@@ -348,17 +370,19 @@ function isImageAttachment(a) {
   return /\.(jpe?g|png|gif|webp|bmp)$/i.test(path)
 }
 
-/** 上报阶段附件（排除处置完成上传的） */
-function isReportAttachment(a) {
-  const code = a.nodeCode
-  if (!code) return true
-  if (code === 'reported') return true
-  if (code === 'handle_finish') return false
-  return code !== 'handle_finish'
+const stageNameMap = {
+  reported: '上报阶段',
+  handle_finish: '处置阶段',
+  pending_dispatch: '立案阶段',
+  handling: '指派阶段',
+  pending_check: '核查阶段',
+  checking: '核查阶段',
+  closed: '结案阶段',
+  returned: '回退阶段'
 }
 
-function isPreviousHandleAttachment(a) {
-  return a.nodeCode === 'handle_finish'
+function getStageLabel(code) {
+  return stageNameMap[code] || code || '其他'
 }
 
 function formatUploadTime(value) {
@@ -371,33 +395,6 @@ function parseUploadTime(value) {
   if (!value) return 0
   const t = new Date(String(value).replace(' ', 'T')).getTime()
   return Number.isNaN(t) ? 0 : t
-}
-
-/** 同一批上传（间隔 1 分钟内）归为一组 */
-function groupHandleAttachments(attachments) {
-  const list = (attachments || [])
-    .filter(isPreviousHandleAttachment)
-    .filter(isImageAttachment)
-    .sort((a, b) => parseUploadTime(a.createTime) - parseUploadTime(b.createTime))
-
-  const batches = []
-  for (const item of list) {
-    const t = parseUploadTime(item.createTime)
-    let batch = batches[batches.length - 1]
-    if (!batch || t - batch.endTime > 60000) {
-      batch = {
-        timeKey: `${t}-${item.id}`,
-        timeLabel: formatUploadTime(item.createTime),
-        endTime: t,
-        items: []
-      }
-      batches.push(batch)
-    } else {
-      batch.endTime = t
-    }
-    batch.items.push(item)
-  }
-  return batches
 }
 
 async function loadImagePreviewUrl(a) {
@@ -413,53 +410,79 @@ async function loadImagePreviewUrl(a) {
   return ''
 }
 
-async function loadReportImages(attachments) {
-  revokeBlobUrls(reportImages.value)
-  reportImages.value = []
-  const list = (attachments || []).filter((a) => isReportAttachment(a) && isImageAttachment(a))
-  if (!list.length) return
+function revokeStagePhotos() {
+  for (const group of stagePhotoGroups.value) {
+    for (const item of group.items) {
+      if (item.url?.startsWith('blob:')) revokeBlobUrls([item.url])
+    }
+  }
+}
+
+async function loadStagePhotos(attachments) {
+  revokeStagePhotos()
+  stagePhotoGroups.value = []
+  const imageAttachments = (attachments || []).filter(isImageAttachment)
+  if (!imageAttachments.length) return
 
   imagesLoading.value = true
   try {
-    const urls = []
-    for (const a of list) {
-      const url = await loadImagePreviewUrl(a)
-      if (url) urls.push(url)
+    const grouped = {}
+    for (const a of imageAttachments) {
+      const code = a.nodeCode || 'other'
+      if (!grouped[code]) grouped[code] = []
+      grouped[code].push(a)
     }
-    reportImages.value = urls
+
+    const order = ['reported', 'pending_dispatch', 'handling', 'handle_finish', 'pending_check', 'checking', 'closed', 'returned']
+    const sortedCodes = Object.keys(grouped).sort((a, b) => {
+      const ia = order.indexOf(a)
+      const ib = order.indexOf(b)
+      const va = ia >= 0 ? ia : order.length
+      const vb = ib >= 0 ? ib : order.length
+      return va - vb
+    })
+
+    const groups = []
+    for (const code of sortedCodes) {
+      const items = grouped[code]
+        .sort((a, b) => parseUploadTime(a.createTime) - parseUploadTime(b.createTime))
+      const resolved = []
+      for (const a of items) {
+        const url = await loadImagePreviewUrl(a)
+        if (url) {
+          resolved.push({ url, time: formatUploadTime(a.createTime) })
+        }
+      }
+      if (resolved.length) {
+        groups.push({ nodeCode: code, label: getStageLabel(code), items: resolved })
+      }
+    }
+    stagePhotoGroups.value = groups
   } finally {
     imagesLoading.value = false
   }
 }
 
-function revokeHandlePhotoBatches() {
-  for (const batch of handlePhotoBatches.value) {
-    revokeBlobUrls(batch.images)
-  }
+function formatFlowTime(value) {
+  if (!value) return ''
+  const s = String(value)
+  return s.length >= 16 ? s.slice(0, 16).replace('T', ' ') : s
 }
 
-async function loadHandlePhotoBatches(attachments) {
-  revokeHandlePhotoBatches()
-  handlePhotoBatches.value = []
-  if (caseInfo.value.caseStatus !== 'handling') return
+function formatFlowReceiver(item) {
+  if (!item.receiverName) return ''
+  const parts = [item.receiverName]
+  if (item.receiverDeptName) parts.push(`（${item.receiverDeptName}）`)
+  return parts.join('')
+}
 
-  const groups = groupHandleAttachments(attachments)
-  const batches = []
-  for (const group of groups) {
-    const images = []
-    for (const item of group.items) {
-      const url = await loadImagePreviewUrl(item)
-      if (url) images.push(url)
-    }
-    if (images.length) {
-      batches.push({
-        timeKey: group.timeKey,
-        timeLabel: group.timeLabel,
-        images
-      })
-    }
+async function loadFlowRecords(id) {
+  try {
+    const res = await getCaseFlowRecords(id)
+    flowRecords.value = res.data || []
+  } catch {
+    flowRecords.value = []
   }
-  handlePhotoBatches.value = batches
 }
 
 async function loadDetail() {
@@ -472,7 +495,8 @@ async function loadDetail() {
     caseInfo.value = detailRes.data || {}
     locationMapKey.value += 1
     const attList = attRes.data || []
-    await Promise.all([loadReportImages(attList), loadHandlePhotoBatches(attList)])
+    await loadStagePhotos(attList)
+    await loadFlowRecords(id)
   } catch {
     showAppFailToast('获取案件详情失败')
   }
@@ -626,8 +650,7 @@ function goBack() {
 onMounted(loadDetail)
 
 onBeforeUnmount(() => {
-  revokeBlobUrls(reportImages.value)
-  revokeHandlePhotoBatches()
+  revokeStagePhotos()
 })
 </script>
 
@@ -695,5 +718,76 @@ onBeforeUnmount(() => {
   display: block;
   border-radius: 4px;
   overflow: hidden;
+}
+
+.flow-timeline {
+  padding: 12px 16px;
+}
+
+.flow-item {
+  display: flex;
+  gap: 12px;
+  padding-bottom: 16px;
+  position: relative;
+}
+
+.flow-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  bottom: 0;
+  width: 1px;
+  background: #ebedf0;
+}
+
+.flow-dot {
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #dcdee0;
+  margin-top: 3px;
+}
+
+.flow-dot--latest {
+  background: #1989fa;
+}
+
+.flow-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.flow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.flow-node {
+  font-size: 14px;
+  font-weight: 600;
+  color: #323233;
+}
+
+.flow-time {
+  font-size: 12px;
+  color: #969799;
+  flex-shrink: 0;
+}
+
+.flow-meta {
+  font-size: 12px;
+  color: #646566;
+  margin-bottom: 2px;
+}
+
+.flow-opinion {
+  font-size: 12px;
+  color: #969799;
+  margin-top: 4px;
+  line-height: 1.5;
 }
 </style>

@@ -36,14 +36,14 @@ const tabs = computed(() => {
 
   if (handler && !collector) {
     return [
-      { path: '/handle', label: '待处置', icon: 'todo-list-o' },
+      { path: '/handle', label: '案件列表', icon: 'todo-list-o' },
       { path: '/mine', label: '我的', icon: 'user-o' }
     ]
   }
 
   if (handler && collector) {
     return [
-      { path: '/handle', label: '待处置', icon: 'todo-list-o' },
+      { path: '/handle', label: '案件列表', icon: 'todo-list-o' },
       { path: '/report', label: '上报', icon: 'edit' },
       { path: '/task', label: '我的任务', icon: 'orders-o' },
       { path: '/mine', label: '我的', icon: 'user-o' }

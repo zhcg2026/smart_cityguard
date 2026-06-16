@@ -71,6 +71,14 @@ export function getCaseAttachments(caseId) {
   })
 }
 
+// 案件流程记录
+export function getCaseFlowRecords(caseId) {
+  return request({
+    url: `/case/${caseId}/flow`,
+    method: 'get'
+  })
+}
+
 // 获取大类列表；type: 1=部件, 2=事件
 export function getCategoryBigList(type) {
   return request({
