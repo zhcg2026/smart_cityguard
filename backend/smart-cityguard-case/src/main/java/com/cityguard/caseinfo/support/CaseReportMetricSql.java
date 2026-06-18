@@ -53,12 +53,11 @@ public final class CaseReportMetricSql {
                             + NOT_HANDLE_TIMEOUT_EXEMPT;
             case CaseReportMetric.EXTENSION -> " AND IFNULL(extension_approved_count, 0) > 0 ";
             case CaseReportMetric.SUSPEND ->
-                    " AND EXISTS (SELECT 1 FROM case_adjustment_apply ca WHERE ca.case_id = id "
+                    " AND EXISTS (SELECT 1 FROM case_adjustment_apply ca WHERE ca.case_id = case_info.id "
                             + "AND ca.apply_type = 'suspend' AND ca.apply_status = 'approved') ";
             case CaseReportMetric.REWORK ->
-                    " AND (case_status IN ('returned','check_not_pass') OR EXISTS "
-                            + "(SELECT 1 FROM case_flow_record f WHERE f.case_id = id "
-                            + "AND (f.node_name LIKE '%回退%' OR f.operate_type = 'return'))) ";
+                    " AND EXISTS (SELECT 1 FROM case_flow_record f WHERE f.case_id = case_info.id "
+                            + "AND f.node_name IN ('派遣员返工部门','受理员回退返工')) ";
             case CaseReportMetric.SHOULD_CLOSE ->
                     " AND (handle_finish_time IS NOT NULL OR case_status IN "
                             + "('handle_finish','pending_check','checking','pending_close','closed','forced_close')) ";

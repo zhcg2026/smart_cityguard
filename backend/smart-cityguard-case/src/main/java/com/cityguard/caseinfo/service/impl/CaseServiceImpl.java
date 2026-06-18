@@ -1243,6 +1243,8 @@ public class CaseServiceImpl implements CaseService {
                 operatorId, resolveOperatorName(operatorId),
                 null, caseInfo.getHandleDeptName());
 
+        notifyDeptCaseHandled(caseInfo);
+
         return caseInfo;
     }
 
@@ -2917,6 +2919,29 @@ public class CaseServiceImpl implements CaseService {
             userNotificationSender.notifyUser(userId, title, content, bizType, bizId, bizCode);
         } catch (Exception e) {
             log.warn("发送用户提醒失败 userId={}: {}", userId, e.getMessage());
+        }
+    }
+
+    private void notifyDeptCaseHandled(CaseInfo caseInfo) {
+        if (userNotificationSender == null || caseInfo == null || caseInfo.getHandleDeptId() == null) {
+            return;
+        }
+        try {
+            List<Long> deptUserIds = jdbcTemplate.queryForList(
+                    """
+                    SELECT DISTINCT u.id FROM sys_user u
+                    INNER JOIN sys_role_user ru ON ru.user_id = u.id
+                    INNER JOIN sys_role r ON r.id = ru.role_id AND r.deleted = 0 AND r.role_code = ?
+                    WHERE u.deleted = 0 AND u.status = 1 AND u.department_id = ?
+                    """,
+                    Long.class, ROLE_DEPT, caseInfo.getHandleDeptId());
+            String handlerName = caseInfo.getCurrentHandlerName() != null ? caseInfo.getCurrentHandlerName() : "处置人员";
+            String content = "案件 " + (caseInfo.getCaseCode() != null ? caseInfo.getCaseCode() : "") + " 已由 "
+                    + handlerName + " 处置完成，请确认处置结果并批转派遣员";
+            userNotificationSender.notifyUsers(deptUserIds, "处置完成待确认",
+                    content, BIZ_CASE, caseInfo.getId(), caseInfo.getCaseCode());
+        } catch (Exception e) {
+            log.warn("发送处置部门确认提醒失败: {}", e.getMessage());
         }
     }
 
