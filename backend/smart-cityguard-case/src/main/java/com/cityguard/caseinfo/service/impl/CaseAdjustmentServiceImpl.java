@@ -323,6 +323,10 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
                     "批准" + typeLabel,
                     "派遣员批准" + typeLabel + (remark.isBlank() ? "" : "：" + remark),
                     operatorId, operatorName, apply.getApplicantId(), apply.getApplicantName());
+            notifyUser(apply.getApplicantId(), typeLabel + "审批通过",
+                    "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel + "申请已由派遣员审批通过",
+                    caseInfo.getId(), caseInfo.getCaseCode());
+            notifyDeptHandlerUsers(caseInfo, typeLabel, true);
         } else {
             if (remark.isBlank()) {
                 throw new BusinessException("驳回时请填写审批意见");
@@ -332,6 +336,10 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
                     "驳回" + typeLabel,
                     "派遣员驳回" + typeLabel + "：" + remark,
                     operatorId, operatorName, apply.getApplicantId(), apply.getApplicantName());
+            notifyUser(apply.getApplicantId(), typeLabel + "审批未通过",
+                    "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel + "申请已由派遣员驳回：" + remark,
+                    caseInfo.getId(), caseInfo.getCaseCode());
+            notifyDeptHandlerUsers(caseInfo, typeLabel, false);
         }
         adjustmentApplyMapper.updateById(apply);
         fillLabels(apply, caseInfo);
@@ -661,6 +669,27 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
         }
     }
 
+    private void notifyDeptHandlerUsers(CaseInfo caseInfo, String typeLabel, boolean approved) {
+        if (caseInfo.getHandleDeptId() == null) {
+            return;
+        }
+        String title = approved ? typeLabel + "审批通过" : typeLabel + "审批未通过";
+        String content = approved
+                ? "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel + "申请已由派遣员审批通过"
+                : "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel + "申请已由派遣员驳回";
+        List<Long> userIds = jdbcTemplate.queryForList("""
+                SELECT DISTINCT u.id FROM sys_user u
+                INNER JOIN sys_role_user ru ON u.id = ru.user_id
+                INNER JOIN sys_role r ON r.id = ru.role_id AND r.deleted = 0
+                WHERE u.deleted = 0 AND (u.status IS NULL OR u.status = 1)
+                  AND u.department_id = ? AND r.role_code IN ('HANDLER','DEPT')
+                """, Long.class, caseInfo.getHandleDeptId());
+        log.debug("notifyDeptHandlerUsers: deptId={}, handlerUserIds={}", caseInfo.getHandleDeptId(), userIds);
+        for (Long uid : userIds) {
+            notifyUser(uid, title, content, caseInfo.getId(), caseInfo.getCaseCode());
+        }
+    }
+
     private Long resolveDispatchOperatorId(CaseInfo caseInfo) {
         if (caseInfo.getDispatchOperatorId() != null) {
             return caseInfo.getDispatchOperatorId();
@@ -752,10 +781,12 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
 
     private void notifyUser(Long userId, String title, String content, Long bizId, String bizCode) {
         if (userNotificationSender == null || userId == null) {
+            log.debug("通知跳过: sender={}, userId={}", userNotificationSender != null, userId);
             return;
         }
         try {
             userNotificationSender.notifyUser(userId, title, content, BIZ_CASE, bizId, bizCode);
+            log.debug("通知发送成功: userId={}, title={}", userId, title);
         } catch (Exception e) {
             log.warn("发送提醒失败 userId={}: {}", userId, e.getMessage());
         }

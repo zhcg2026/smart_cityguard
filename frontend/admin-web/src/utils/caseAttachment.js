@@ -19,8 +19,7 @@ export function isHandleFinishAttachment(a) {
 export function isReportCaseAttachment(a) {
   const code = a?.nodeCode
   if (!code) return true
-  if (code === 'reported') return true
-  return code !== 'handle_finish'
+  return code === 'reported'
 }
 
 /** 同一批上传（间隔 1 分钟内）归为一组，返回从旧到新 */

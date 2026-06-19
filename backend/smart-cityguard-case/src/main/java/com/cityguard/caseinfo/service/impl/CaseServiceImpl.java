@@ -43,7 +43,11 @@ import com.cityguard.common.constant.TaskStatusConstant;
 import com.cityguard.task.entity.CheckTask;
 import com.cityguard.task.entity.VerifyTask;
 import com.cityguard.task.mapper.CheckTaskMapper;
+import com.cityguard.task.mapper.CheckAttachmentMapper;
 import com.cityguard.task.mapper.VerifyTaskMapper;
+import com.cityguard.task.mapper.VerifyAttachmentMapper;
+import com.cityguard.task.entity.CheckAttachment;
+import com.cityguard.task.entity.VerifyAttachment;
 import com.cityguard.task.service.TaskService;
 import com.cityguard.timer.constant.TimerStageConstant;
 import com.cityguard.timer.model.CaseTimerDisplayInfo;
@@ -79,7 +83,9 @@ public class CaseServiceImpl implements CaseService {
     private final SysUserMapper sysUserMapper;
     private final SysDepartmentMapper sysDepartmentMapper;
     private final CheckTaskMapper checkTaskMapper;
+    private final CheckAttachmentMapper checkAttachmentMapper;
     private final VerifyTaskMapper verifyTaskMapper;
+    private final VerifyAttachmentMapper verifyAttachmentMapper;
     private final TaskService taskService;
     private final CaseTimerService caseTimerService;
     private final CaseAdjustmentService caseAdjustmentService;
@@ -1910,7 +1916,60 @@ public class CaseServiceImpl implements CaseService {
 
     @Override
     public List<CaseAttachment> getAttachments(Long caseId) {
-        return attachmentMapper.selectByCaseId(caseId);
+        List<CaseAttachment> all = new ArrayList<>(attachmentMapper.selectByCaseId(caseId));
+
+        List<CheckTask> checkTasks = checkTaskMapper.selectList(
+                new LambdaQueryWrapper<CheckTask>()
+                        .eq(CheckTask::getCaseId, caseId)
+                        .eq(CheckTask::getIsDeleted, 0));
+        for (CheckTask ct : checkTasks) {
+            for (CheckAttachment ca : checkAttachmentMapper.selectByCheckTaskId(ct.getId())) {
+                CaseAttachment a = new CaseAttachment();
+                a.setId(ca.getId());
+                a.setCaseId(caseId);
+                a.setFileType(ca.getFileType());
+                a.setFileName(ca.getFileName());
+                a.setFilePath(ca.getFilePath());
+                a.setFileSize(ca.getFileSize());
+                a.setPhotoType(ca.getPhotoType());
+                a.setLongitude(ca.getLongitude());
+                a.setLatitude(ca.getLatitude());
+                a.setShootTime(ca.getShootTime());
+                a.setUploaderId(ca.getUploaderId());
+                a.setUploaderName(ca.getUploaderName());
+                a.setNodeCode("checking");
+                a.setCreateTime(ca.getCreateTime());
+                all.add(a);
+            }
+        }
+
+        List<VerifyTask> verifyTasks = verifyTaskMapper.selectList(
+                new LambdaQueryWrapper<VerifyTask>()
+                        .eq(VerifyTask::getCaseId, caseId)
+                        .eq(VerifyTask::getIsDeleted, 0));
+        for (VerifyTask vt : verifyTasks) {
+            for (VerifyAttachment va : verifyAttachmentMapper.selectByVerifyTaskId(vt.getId())) {
+                CaseAttachment a = new CaseAttachment();
+                a.setId(va.getId());
+                a.setCaseId(caseId);
+                a.setFileType(va.getFileType());
+                a.setFileName(va.getFileName());
+                a.setFilePath(va.getFilePath());
+                a.setFileSize(va.getFileSize());
+                a.setPhotoType(va.getPhotoType());
+                a.setLongitude(va.getLongitude());
+                a.setLatitude(va.getLatitude());
+                a.setShootTime(va.getShootTime());
+                a.setUploaderId(va.getUploaderId());
+                a.setUploaderName(va.getUploaderName());
+                a.setNodeCode("verify");
+                a.setCreateTime(va.getCreateTime());
+                all.add(a);
+            }
+        }
+
+        all.sort(Comparator.comparing(a -> a.getCreateTime() != null ? a.getCreateTime() : LocalDateTime.MIN));
+        return all;
     }
 
     @Override
