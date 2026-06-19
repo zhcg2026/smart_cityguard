@@ -169,8 +169,8 @@
               v-if="canDrillCell(row, col.prop)"
               class="drill-link"
               @click="openDrill(row, col.metricKey, col.label)"
-            >{{ cellCount(row, col.prop) }}</span>
-            <span v-else>{{ cellCount(row, col.prop) }}</span>
+            >{{ cellCount(row, col.prop) }}<template v-if="col.appealProp && cellCount(row, col.appealProp) > 0">（{{ cellCount(row, col.appealProp) }}）</template></span>
+            <span v-else>{{ cellCount(row, col.prop) }}<template v-if="col.appealProp && cellCount(row, col.appealProp) > 0">（{{ cellCount(row, col.appealProp) }}）</template></span>
           </template>
         </el-table-column>
         <el-table-column prop="caseRatio" label="案件占比%" width="100" align="center" fixed="right">
@@ -192,6 +192,11 @@
         <el-table-column prop="caseStatus" label="状态" width="110">
           <template #default="{ row }">
             <el-tag :type="getCaseStatusTagType(row.caseStatus)">{{ formatCaseStatusLabel(row) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="申诉" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.handleTimeoutExempt === 1" type="success" size="small">申诉通过</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="handleDeptName" label="处置部门" width="120" show-overflow-tooltip />
@@ -254,13 +259,13 @@ const metricColumns = [
   { prop: 'pendingHandleCount', label: '待处置数', metricKey: 'pendingHandle' },
   { prop: 'onTimePendingCount', label: '按时待处置', metricKey: 'onTimePending' },
   { prop: 'overduePendingCount', label: '超时待处置', metricKey: 'overduePending' },
-  { prop: 'onTimeHandleCount', label: '按时处置', metricKey: 'onTimeHandle' },
+  { prop: 'onTimeHandleCount', label: '按时处置', metricKey: 'onTimeHandle', appealProp: 'appealOverdueHandleCount' },
   { prop: 'overdueHandleCount', label: '超时处置', metricKey: 'overdueHandle' },
   { prop: 'extensionCount', label: '延期数', metricKey: 'extension' },
   { prop: 'suspendCount', label: '挂账数', metricKey: 'suspend' },
   { prop: 'reworkCount', label: '返工数', metricKey: 'rework' },
   { prop: 'shouldCloseCount', label: '应结案数', metricKey: 'shouldClose' },
-  { prop: 'onTimeCloseCount', label: '按时结案', metricKey: 'onTimeClose' },
+  { prop: 'onTimeCloseCount', label: '按时结案', metricKey: 'onTimeClose', appealProp: 'appealOverdueCloseCount' },
   { prop: 'closedCount', label: '结案数', metricKey: 'closed' },
   { prop: 'overdueCloseCount', label: '超时结案', metricKey: 'overdueClose' },
   { prop: 'appealOnTimeCloseCount', label: '申诉后按时结案', metricKey: 'appealOnTimeClose' },

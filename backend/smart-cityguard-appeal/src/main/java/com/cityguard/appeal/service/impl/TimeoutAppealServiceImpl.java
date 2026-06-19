@@ -158,8 +158,10 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         vo.setReviews(appealReviewMapper.selectByAppealId(appealId));
         vo.setAttachments(listAttachments(appealId));
 
-        CaseInfo caseInfo = requireCase(appeal.getCaseId());
-        fillCaseSummary(vo, caseInfo);
+        CaseInfo caseInfo = findCase(appeal.getCaseId());
+        if (caseInfo != null) {
+            fillCaseSummary(vo, caseInfo);
+        }
         vo.setCanDispatcherReview(canDispatcherReview(appeal, user));
         vo.setCanAcceptorReview(canAcceptorReview(appeal, user));
         return vo;
@@ -401,6 +403,15 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         CaseInfo caseInfo = caseInfoMapper.selectById(caseId);
         if (caseInfo == null || Integer.valueOf(1).equals(caseInfo.getIsDeleted())) {
             throw new BusinessException("案件不存在");
+        }
+        return caseInfo;
+    }
+
+    private CaseInfo findCase(Long caseId) {
+        if (caseId == null) return null;
+        CaseInfo caseInfo = caseInfoMapper.selectById(caseId);
+        if (caseInfo == null || Integer.valueOf(1).equals(caseInfo.getIsDeleted())) {
+            return null;
         }
         return caseInfo;
     }

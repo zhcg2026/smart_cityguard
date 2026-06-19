@@ -39,14 +39,14 @@ public final class CaseReportMetricSql {
                             + "('handle_finish','pending_check','checking','check_pass','closed','forced_close')) ";
             case CaseReportMetric.PENDING_HANDLE -> " AND " + PENDING_HANDLE_COND;
             case CaseReportMetric.ON_TIME_PENDING ->
-                    " AND " + PENDING_HANDLE_COND + " AND (deadline_time IS NULL OR deadline_time >= NOW()) ";
+                    " AND " + PENDING_HANDLE_COND + " AND (deadline_time IS NULL OR deadline_time >= NOW() OR handle_timeout_exempt = 1) ";
             case CaseReportMetric.OVERDUE_PENDING ->
                     " AND " + PENDING_HANDLE_COND
                             + " AND deadline_time IS NOT NULL AND deadline_time < NOW() "
                             + NOT_HANDLE_TIMEOUT_EXEMPT;
             case CaseReportMetric.ON_TIME_HANDLE ->
                     " AND handle_finish_time IS NOT NULL "
-                            + "AND (deadline_time IS NULL OR handle_finish_time <= deadline_time) ";
+                            + "AND (deadline_time IS NULL OR handle_finish_time <= deadline_time OR handle_timeout_exempt = 1) ";
             case CaseReportMetric.OVERDUE_HANDLE ->
                     " AND handle_finish_time IS NOT NULL AND deadline_time IS NOT NULL "
                             + "AND handle_finish_time > deadline_time "
@@ -63,7 +63,7 @@ public final class CaseReportMetricSql {
                             + "('handle_finish','pending_check','checking','pending_close','closed','forced_close')) ";
             case CaseReportMetric.CLOSED -> " AND " + CLOSED_COND;
             case CaseReportMetric.ON_TIME_CLOSE ->
-                    " AND " + CLOSED_COND + " AND (deadline_time IS NULL OR close_time <= deadline_time) ";
+                    " AND " + CLOSED_COND + " AND (deadline_time IS NULL OR close_time <= deadline_time OR handle_timeout_exempt = 1) ";
             case CaseReportMetric.OVERDUE_CLOSE ->
                     " AND " + CLOSED_COND
                             + " AND deadline_time IS NOT NULL AND close_time > deadline_time "

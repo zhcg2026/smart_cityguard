@@ -47,15 +47,16 @@ public class CaseReportServiceImpl implements CaseReportService {
                    SUM(CASE WHEN c.dispatch_time IS NOT NULL AND c.case_status NOT IN ('not_accepted','cancelled') THEN 1 ELSE 0 END) AS should_handle_count,
                    SUM(CASE WHEN (c.handle_finish_time IS NOT NULL OR c.case_status IN ('handle_finish','pending_check','checking','check_pass','closed','forced_close')) THEN 1 ELSE 0 END) AS handled_count,
                    SUM(CASE WHEN c.case_status IN ('pending_handle','handling') AND c.handle_finish_time IS NULL AND c.case_status NOT IN ('not_accepted','cancelled') THEN 1 ELSE 0 END) AS pending_handle_count,
-                   SUM(CASE WHEN c.case_status IN ('pending_handle','handling') AND c.handle_finish_time IS NULL AND c.case_status NOT IN ('not_accepted','cancelled') AND (c.deadline_time IS NULL OR c.deadline_time >= NOW()) THEN 1 ELSE 0 END) AS on_time_pending_count,
+                   SUM(CASE WHEN c.case_status IN ('pending_handle','handling') AND c.handle_finish_time IS NULL AND c.case_status NOT IN ('not_accepted','cancelled') AND (c.deadline_time IS NULL OR c.deadline_time >= NOW() OR c.handle_timeout_exempt = 1) THEN 1 ELSE 0 END) AS on_time_pending_count,
                    SUM(CASE WHEN c.case_status IN ('pending_handle','handling') AND c.handle_finish_time IS NULL AND c.case_status NOT IN ('not_accepted','cancelled') AND c.deadline_time IS NOT NULL AND c.deadline_time < NOW() AND (c.handle_timeout_exempt IS NULL OR c.handle_timeout_exempt = 0) THEN 1 ELSE 0 END) AS overdue_pending_count,
-                   SUM(CASE WHEN c.handle_finish_time IS NOT NULL AND (c.deadline_time IS NULL OR c.handle_finish_time <= c.deadline_time) THEN 1 ELSE 0 END) AS on_time_handle_count,
+                   SUM(CASE WHEN c.handle_finish_time IS NOT NULL AND (c.deadline_time IS NULL OR c.handle_finish_time <= c.deadline_time OR c.handle_timeout_exempt = 1) THEN 1 ELSE 0 END) AS on_time_handle_count,
                    SUM(CASE WHEN c.handle_finish_time IS NOT NULL AND c.deadline_time IS NOT NULL AND c.handle_finish_time > c.deadline_time AND (c.handle_timeout_exempt IS NULL OR c.handle_timeout_exempt = 0) THEN 1 ELSE 0 END) AS overdue_handle_count,
+                   SUM(CASE WHEN c.handle_finish_time IS NOT NULL AND c.deadline_time IS NOT NULL AND c.handle_finish_time > c.deadline_time AND c.handle_timeout_exempt = 1 THEN 1 ELSE 0 END) AS appeal_overdue_handle_count,
                    SUM(CASE WHEN IFNULL(c.extension_approved_count, 0) > 0 THEN 1 ELSE 0 END) AS extension_count,
                    SUM(CASE WHEN EXISTS (SELECT 1 FROM case_adjustment_apply ca WHERE ca.case_id = c.id AND ca.apply_type = 'suspend' AND ca.apply_status = 'approved') THEN 1 ELSE 0 END) AS suspend_count,
                     SUM(CASE WHEN EXISTS (SELECT 1 FROM case_flow_record f WHERE f.case_id = c.id AND f.node_name IN ('派遣员返工部门','受理员回退返工')) THEN 1 ELSE 0 END) AS rework_count,
                    SUM(CASE WHEN (c.handle_finish_time IS NOT NULL OR c.case_status IN ('handle_finish','pending_check','checking','pending_close','closed','forced_close')) THEN 1 ELSE 0 END) AS should_close_count,
-                   SUM(CASE WHEN c.close_time IS NOT NULL AND c.case_status IN ('closed','forced_close') AND (c.deadline_time IS NULL OR c.close_time <= c.deadline_time) THEN 1 ELSE 0 END) AS on_time_close_count,
+                   SUM(CASE WHEN c.close_time IS NOT NULL AND c.case_status IN ('closed','forced_close') AND (c.deadline_time IS NULL OR c.close_time <= c.deadline_time OR c.handle_timeout_exempt = 1) THEN 1 ELSE 0 END) AS on_time_close_count,
                    SUM(CASE WHEN c.close_time IS NOT NULL AND c.case_status IN ('closed','forced_close') THEN 1 ELSE 0 END) AS closed_count,
                    SUM(CASE WHEN c.close_time IS NOT NULL AND c.case_status IN ('closed','forced_close') AND c.deadline_time IS NOT NULL AND c.close_time > c.deadline_time AND (c.handle_timeout_exempt IS NULL OR c.handle_timeout_exempt = 0) THEN 1 ELSE 0 END) AS overdue_close_count,
                    SUM(CASE WHEN c.close_time IS NOT NULL AND c.case_status IN ('closed','forced_close') AND c.handle_timeout_exempt = 1 AND (c.deadline_time IS NULL OR c.close_time <= c.deadline_time) THEN 1 ELSE 0 END) AS appeal_on_time_close_count,
@@ -140,6 +141,7 @@ public class CaseReportServiceImpl implements CaseReportService {
         r.setOverduePendingCount(rs.getLong("overdue_pending_count"));
         r.setOnTimeHandleCount(rs.getLong("on_time_handle_count"));
         r.setOverdueHandleCount(rs.getLong("overdue_handle_count"));
+        r.setAppealOverdueHandleCount(rs.getLong("appeal_overdue_handle_count"));
         r.setExtensionCount(rs.getLong("extension_count"));
         r.setSuspendCount(rs.getLong("suspend_count"));
         r.setReworkCount(rs.getLong("rework_count"));
@@ -174,6 +176,7 @@ public class CaseReportServiceImpl implements CaseReportService {
             t.setOverduePendingCount(t.getOverduePendingCount() + r.getOverduePendingCount());
             t.setOnTimeHandleCount(t.getOnTimeHandleCount() + r.getOnTimeHandleCount());
             t.setOverdueHandleCount(t.getOverdueHandleCount() + r.getOverdueHandleCount());
+            t.setAppealOverdueHandleCount(t.getAppealOverdueHandleCount() + r.getAppealOverdueHandleCount());
             t.setExtensionCount(t.getExtensionCount() + r.getExtensionCount());
             t.setSuspendCount(t.getSuspendCount() + r.getSuspendCount());
             t.setReworkCount(t.getReworkCount() + r.getReworkCount());

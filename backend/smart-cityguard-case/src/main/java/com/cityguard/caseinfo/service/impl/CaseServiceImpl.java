@@ -309,6 +309,9 @@ public class CaseServiceImpl implements CaseService {
     @Override
     public CaseInfo getCaseDetail(Long id, Long userId, List<String> roles) {
         CaseInfo caseInfo = loadCaseDetail(id);
+        if (caseInfo == null) {
+            return null;
+        }
         assertCaseReadScope(caseInfo, userId, roles);
         enrichHandlerDeptNotice(caseInfo, userId, roles);
         return caseInfo;
@@ -317,7 +320,7 @@ public class CaseServiceImpl implements CaseService {
     private CaseInfo loadCaseDetail(Long id) {
         CaseInfo caseInfo = caseInfoMapper.selectById(id);
         if (caseInfo == null) {
-            throw new BusinessException("案件不存在");
+            return null;
         }
         enrichCaseGeoDisplay(caseInfo);
         enrichHandleDeptDisplay(caseInfo);

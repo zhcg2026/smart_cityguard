@@ -26,6 +26,7 @@ public class CaseDeptStatisticsRow {
     private long onTimeCloseCount;
     private long closedCount;
     private long overdueCloseCount;
+    private long appealOverdueHandleCount;
     private long appealOnTimeCloseCount;
     private long appealOverdueCloseCount;
 

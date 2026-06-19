@@ -1361,6 +1361,7 @@ async function loadPageData(caseId) {
   verifyTaskRecords.value = []
 
   await loadCaseDetail(caseId)
+  if (!caseInfo.value?.id) return
   await loadTaskFeedbackRecords(caseId)
   await loadSceneAttachments(caseId)
   await loadCaseFlowRecords(caseId)
