@@ -1251,7 +1251,8 @@ const displayStatusType = computed(() => {
 })
 
 const canDispatcherReturnAcceptor = computed(() => {
-  if (caseInfo.value.caseStatus !== 'pending_dispatch') return false
+  const status = caseInfo.value.caseStatus
+  if (status !== 'pending_dispatch' && status !== 'returned') return false
   if (!hasRole(RoleCode.DISPATCHER) && !isAdminLike.value) return false
   if (isAdminLike.value) return true
   const assignee = caseInfo.value.currentHandlerId
@@ -1325,7 +1326,7 @@ const canClose = computed(() => {
 })
 const canReject = computed(
   () =>
-    ['pending_verify', 'pending_register', 'reported'].includes(caseInfo.value.caseStatus) &&
+    ['pending_verify', 'pending_register', 'reported', 'returned'].includes(caseInfo.value.caseStatus) &&
     (isAdminLike.value || acceptorCanOperate(caseInfo.value))
 )
 

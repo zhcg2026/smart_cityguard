@@ -38,9 +38,12 @@ public final class DashboardPeriodHelper {
         return new Range(startDate.atStartOfDay(), today.atTime(LocalTime.of(23, 59, 59)));
     }
 
-    /** 已完成按结案时间，其余按上报时间 */
+    /** 已完成按结案时间，待处理不限时间（只要没完成就一直显示），其余按上报时间 */
     public static void applyPeriodFilter(LambdaQueryWrapper<CaseInfo> wrapper, String statGroup, Range range) {
         if (range == null) {
+            return;
+        }
+        if ("pending".equals(statGroup)) {
             return;
         }
         if ("completed".equals(statGroup)) {

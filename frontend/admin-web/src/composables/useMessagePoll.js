@@ -2,6 +2,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElNotification } from 'element-plus'
 import { getUnreadMessageCount, getUnreadMessages } from '@/api/message'
+import { playNotifySound } from '@/utils/notifySound'
 
 const POLL_MS = 25000
 const SEEN_KEY = 'cityguard_seen_msg_ids'
@@ -62,6 +63,7 @@ export function useMessagePoll() {
         })
       }
       if (hasNew) {
+        playNotifySound()
         saveSeenIds(seenIds)
         window.dispatchEvent(new CustomEvent('cityguard:refresh-lists'))
       }

@@ -315,9 +315,9 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
                 caseTimerService.pauseHandleTimer(caseInfo.getId());
                 jdbcTemplate.update(
                         """
-                        UPDATE case_info SET is_suspended = 1, suspend_until = ? WHERE id = ?
+                        UPDATE case_info SET case_status = ?, is_suspended = 1, suspend_until = ? WHERE id = ?
                         """,
-                        apply.getSuspendUntil(), caseInfo.getId());
+                        CaseStatusConstant.SUSPENDED, apply.getSuspendUntil(), caseInfo.getId());
             }
             saveFlowRecord(caseInfo.getId(), caseInfo.getCaseCode(), caseInfo.getCaseStatus(),
                     "批准" + typeLabel,
@@ -326,7 +326,8 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
             notifyUser(apply.getApplicantId(), typeLabel + "审批通过",
                     "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel + "申请已由派遣员审批通过",
                     caseInfo.getId(), caseInfo.getCaseCode());
-            notifyDeptHandlerUsers(caseInfo, typeLabel, true);
+            boolean handlerInvolved = caseInfo.getCurrentHandlerId() != null;
+            notifyDeptHandlerUsers(caseInfo, typeLabel, true, handlerInvolved);
         } else {
             if (remark.isBlank()) {
                 throw new BusinessException("驳回时请填写审批意见");
@@ -339,7 +340,8 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
             notifyUser(apply.getApplicantId(), typeLabel + "审批未通过",
                     "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel + "申请已由派遣员驳回：" + remark,
                     caseInfo.getId(), caseInfo.getCaseCode());
-            notifyDeptHandlerUsers(caseInfo, typeLabel, false);
+            boolean handlerInvolved = caseInfo.getCurrentHandlerId() != null;
+            notifyDeptHandlerUsers(caseInfo, typeLabel, false, handlerInvolved);
         }
         adjustmentApplyMapper.updateById(apply);
         fillLabels(apply, caseInfo);
@@ -491,8 +493,8 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
         }
         caseTimerService.resumeHandleTimer(caseId);
         jdbcTemplate.update(
-                "UPDATE case_info SET is_suspended = 0, suspend_until = NULL WHERE id = ?",
-                caseId);
+                "UPDATE case_info SET case_status = ?, is_suspended = 0, suspend_until = NULL WHERE id = ?",
+                CaseStatusConstant.HANDLING, caseId);
         saveFlowRecord(caseId, caseInfo.getCaseCode(), caseInfo.getCaseStatus(),
                 "挂账到期恢复", "挂账期届满，处置计时已恢复", 1L, "系统");
         log.info("Case {} suspend auto-resumed", caseId);
@@ -669,7 +671,8 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
         }
     }
 
-    private void notifyDeptHandlerUsers(CaseInfo caseInfo, String typeLabel, boolean approved) {
+    private void notifyDeptHandlerUsers(CaseInfo caseInfo, String typeLabel, boolean approved,
+                                         boolean includeHandlers) {
         if (caseInfo.getHandleDeptId() == null) {
             return;
         }
@@ -677,14 +680,16 @@ public class CaseAdjustmentServiceImpl implements CaseAdjustmentService {
         String content = approved
                 ? "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel + "申请已由派遣员审批通过"
                 : "案件 " + caseInfo.getCaseCode() + " 的" + typeLabel + "申请已由派遣员驳回";
-        List<Long> userIds = jdbcTemplate.queryForList("""
-                SELECT DISTINCT u.id FROM sys_user u
-                INNER JOIN sys_role_user ru ON u.id = ru.user_id
-                INNER JOIN sys_role r ON r.id = ru.role_id AND r.deleted = 0
-                WHERE u.deleted = 0 AND (u.status IS NULL OR u.status = 1)
-                  AND u.department_id = ? AND r.role_code IN ('HANDLER','DEPT')
-                """, Long.class, caseInfo.getHandleDeptId());
-        log.debug("notifyDeptHandlerUsers: deptId={}, handlerUserIds={}", caseInfo.getHandleDeptId(), userIds);
+        String roleFilter = includeHandlers ? "('HANDLER','DEPT')" : "('DEPT')";
+        List<Long> userIds = jdbcTemplate.queryForList(
+                "SELECT DISTINCT u.id FROM sys_user u "
+                + "INNER JOIN sys_role_user ru ON u.id = ru.user_id "
+                + "INNER JOIN sys_role r ON r.id = ru.role_id AND r.deleted = 0 "
+                + "WHERE u.deleted = 0 AND (u.status IS NULL OR u.status = 1) "
+                + "AND u.department_id = ? AND r.role_code IN " + roleFilter,
+                Long.class, caseInfo.getHandleDeptId());
+        log.debug("notifyDeptHandlerUsers: deptId={}, includeHandlers={}, userIds={}",
+                caseInfo.getHandleDeptId(), includeHandlers, userIds);
         for (Long uid : userIds) {
             notifyUser(uid, title, content, caseInfo.getId(), caseInfo.getCaseCode());
         }

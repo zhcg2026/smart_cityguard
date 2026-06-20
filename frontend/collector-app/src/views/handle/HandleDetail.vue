@@ -289,6 +289,7 @@ const handleTimerBannerText = computed(() => {
 const statusLabel = computed(() => {
   const map = {
     handling: '处置中',
+    suspended: '挂账中',
     handle_finish: '待部门确认',
     pending_check: '待核实',
     checking: '核查中',

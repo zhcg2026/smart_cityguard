@@ -27,6 +27,7 @@ public class CaseStatusConstant {
 
     // 处置阶段
     public static final String HANDLING = "handling";           // 处置中
+    public static final String SUSPENDED = "suspended";         // 挂账中
     public static final String HANDLE_FINISH = "handle_finish"; // 处置完成
     public static final String PENDING_CHECK = "pending_check"; // 待核查
 

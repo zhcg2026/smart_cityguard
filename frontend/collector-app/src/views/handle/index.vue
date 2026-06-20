@@ -58,6 +58,7 @@ const pageNum = ref(1)
 
 const statusMap = {
   handling: '处置中',
+  suspended: '挂账中',
   handle_finish: '待部门确认',
   pending_check: '待核实',
   closed: '已结案',

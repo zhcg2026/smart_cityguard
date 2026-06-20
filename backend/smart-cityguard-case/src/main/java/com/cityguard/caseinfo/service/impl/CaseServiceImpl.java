@@ -111,7 +111,10 @@ public class CaseServiceImpl implements CaseService {
             CaseStatusConstant.PENDING_REGISTER,
             CaseStatusConstant.PENDING_DISPATCH,
             CaseStatusConstant.PENDING_HANDLE,
-            CaseStatusConstant.RETURNED
+            CaseStatusConstant.RETURNED,
+            CaseStatusConstant.HANDLE_FINISH,
+            CaseStatusConstant.PENDING_CHECK,
+            CaseStatusConstant.SUSPENDED
     );
 
     private static final List<String> DASHBOARD_COMPLETED_STATUSES = List.of(
@@ -1413,6 +1416,10 @@ public class CaseServiceImpl implements CaseService {
         caseTimerService.onCaseDeptReturnedToDispatcher(
                 caseId, updated.getCaseCode(), LocalDateTime.now());
 
+        notifyUserTask(dispatcherId, "案件被退回",
+                "案件 " + updated.getCaseCode() + " 已被处置部门退回，请重新处理",
+                BIZ_CASE, updated.getId(), updated.getCaseCode());
+
         return getCaseDetail(caseId);
     }
 
@@ -1506,6 +1513,10 @@ public class CaseServiceImpl implements CaseService {
                 CaseFlowOperateType.RETURN, flowRemark, operatorId, operatorName,
                 handlerId, handlerName);
 
+        notifyUserTask(handlerId, "案件被退回",
+                "案件 " + updated.getCaseCode() + " 已被部门打回，请重新处置",
+                BIZ_CASE, updated.getId(), updated.getCaseCode());
+
         return updated;
     }
 
@@ -1547,6 +1558,8 @@ public class CaseServiceImpl implements CaseService {
         caseAdjustmentService.voidPendingAdjustmentsOnHandlerUnassign(
                 caseId, operatorId, flowRemark, operatorId, resolveOperatorName(operatorId));
 
+        notifyDeptUsersNewCase(updated, updated.getHandleDeptName());
+
         return getCaseDetail(caseId);
     }
 
@@ -1557,8 +1570,10 @@ public class CaseServiceImpl implements CaseService {
         Long caseId = req.getCaseId();
         String opinion = requireRemark(req.getRemark());
         CaseInfo loaded = getCaseDetail(caseId);
-        if (!CaseStatusConstant.PENDING_DISPATCH.equals(loaded.getCaseStatus())) {
-            throw new BusinessException("仅「待派遣」状态可回退受理员");
+        String status = loaded.getCaseStatus();
+        if (!CaseStatusConstant.PENDING_DISPATCH.equals(status)
+                && !CaseStatusConstant.RETURNED.equals(status)) {
+            throw new BusinessException("仅「待派遣」或「已回退」状态可回退受理员");
         }
         assertDispatcherAssignee(loaded, operatorId, operatorRoles);
 
@@ -1567,7 +1582,9 @@ public class CaseServiceImpl implements CaseService {
 
         LambdaUpdateWrapper<CaseInfo> uw = new LambdaUpdateWrapper<>();
         uw.eq(CaseInfo::getId, caseId)
-                .eq(CaseInfo::getCaseStatus, CaseStatusConstant.PENDING_DISPATCH)
+                .in(CaseInfo::getCaseStatus,
+                        CaseStatusConstant.PENDING_DISPATCH,
+                        CaseStatusConstant.RETURNED)
                 .eq(CaseInfo::getIsDeleted, 0);
         if (req.getClientUpdateTime() != null) {
             uw.eq(CaseInfo::getUpdateTime, req.getClientUpdateTime());
@@ -1589,6 +1606,10 @@ public class CaseServiceImpl implements CaseService {
         saveFlowRecord(caseId, updated.getCaseCode(), CaseStatusConstant.RETURNED, "派遣员回退受理员",
                 CaseFlowOperateType.RETURN, flowRemark, operatorId, operatorName,
                 acceptor.getId(), acceptorName);
+
+        notifyUserTask(acceptor.getId(), "案件被退回",
+                "案件 " + updated.getCaseCode() + " 已被派遣员退回，请重新处理",
+                BIZ_CASE, updated.getId(), updated.getCaseCode());
 
         return updated;
     }
@@ -1637,6 +1658,8 @@ public class CaseServiceImpl implements CaseService {
                 CaseFlowOperateType.RETURN, flowRemark, operatorId, operatorName,
                 null, deptName);
 
+        notifyDeptUsersNewCase(updated, deptName);
+
         return updated;
     }
 
@@ -1682,6 +1705,13 @@ public class CaseServiceImpl implements CaseService {
         saveFlowRecord(caseId, updated.getCaseCode(), CaseStatusConstant.PENDING_HANDLE, "受理员回退返工",
                 CaseFlowOperateType.RETURN, flowRemark, operatorId, operatorName,
                 dispatcher.getId(), dispatcherName);
+
+        caseTimerService.onCaseDeptReturnedToDispatcher(
+                caseId, updated.getCaseCode(), LocalDateTime.now());
+
+        notifyUserTask(dispatcher.getId(), "案件被退回",
+                "案件 " + updated.getCaseCode() + " 已被受理员退回，请重新派遣",
+                BIZ_CASE, updated.getId(), updated.getCaseCode());
 
         return updated;
     }
@@ -1873,7 +1903,8 @@ public class CaseServiceImpl implements CaseService {
         String rs = loaded.getCaseStatus() != null ? loaded.getCaseStatus().trim() : null;
         if (!CaseStatusConstant.PENDING_VERIFY.equals(rs)
                 && !CaseStatusConstant.PENDING_REGISTER.equals(rs)
-                && !CaseStatusConstant.REPORTED.equals(rs)) {
+                && !CaseStatusConstant.REPORTED.equals(rs)
+                && !CaseStatusConstant.RETURNED.equals(rs)) {
             throw new BusinessException("案件状态不正确，无法作废");
         }
         assertAcceptorCanOperateCase(loaded, operatorId);
@@ -1883,7 +1914,8 @@ public class CaseServiceImpl implements CaseService {
                 .in(CaseInfo::getCaseStatus,
                         CaseStatusConstant.PENDING_VERIFY,
                         CaseStatusConstant.PENDING_REGISTER,
-                        CaseStatusConstant.REPORTED)
+                        CaseStatusConstant.REPORTED,
+                        CaseStatusConstant.RETURNED)
                 .eq(CaseInfo::getIsDeleted, 0)
                 .and(w -> w.isNull(CaseInfo::getRegisterOperatorId)
                         .or()
@@ -1901,6 +1933,12 @@ public class CaseServiceImpl implements CaseService {
         CaseInfo updated = getCaseDetail(caseId);
         saveFlowRecord(caseId, updated.getCaseCode(), CaseStatusConstant.NOT_ACCEPTED, "作废",
                 CaseFlowOperateType.CANCEL, reason, operatorId, operatorName, null, null);
+
+        if (updated.getReporterId() != null) {
+            notifyUserTask(updated.getReporterId(), "案件已作废",
+                    "案件 " + updated.getCaseCode() + " 已被作废，原因：" + reason,
+                    BIZ_CASE, updated.getId(), updated.getCaseCode());
+        }
 
         return updated;
     }
