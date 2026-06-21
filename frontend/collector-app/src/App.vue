@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-import { watch } from 'vue'
+import { watch, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getToken } from '@/utils/auth'
@@ -13,7 +13,8 @@ const userStore = useUserStore()
 userStore.initUser()
 
 const route = useRoute()
-const { startPoll, stopPoll } = useMessagePoll()
+const { unreadCount, startPoll, stopPoll } = useMessagePoll()
+provide('unreadCount', unreadCount)
 
 watch(
   () => [route.path, getToken()],

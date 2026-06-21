@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { getToken } from '@/utils/auth'
 import { useUserStore } from '@/stores/user'
-import { defaultHomePath, isHandlerMobileUser, isCollectorMobileUser } from '@/utils/roleAccess'
+import { defaultHomePath, isHandlerMobileUser, isCollectorMobileUser, isDeptMobileUser } from '@/utils/roleAccess'
 
 const routes = [
   {
@@ -58,12 +58,60 @@ const routes = [
         meta: { title: '核查任务详情', hideTabbar: true }
       },
       {
+        path: 'message',
+        name: 'Message',
+        component: () => import('@/views/message/index.vue'),
+        meta: { title: '消息通知' }
+      },
+      {
         path: 'mine',
         name: 'Mine',
         component: () => import('@/views/mine/index.vue'),
         meta: { title: '我的' }
+      },
+      {
+        path: 'mine/report',
+        name: 'MineReport',
+        component: () => import('@/views/mine/report/index.vue'),
+        meta: { title: '我的上报', hideTabbar: true }
+      },
+      {
+        path: 'mine/password',
+        name: 'MinePassword',
+        component: () => import('@/views/mine/password/index.vue'),
+        meta: { title: '修改密码', hideTabbar: true }
+      },
+      {
+        path: 'mine/about',
+        name: 'MineAbout',
+        component: () => import('@/views/mine/about/index.vue'),
+        meta: { title: '关于我们', hideTabbar: true }
+      },
+      {
+        path: 'appeal',
+        name: 'AppealList',
+        component: () => import('@/views/appeal/list.vue'),
+        meta: { title: '超时申诉', handler: true }
+      },
+      {
+        path: 'appeal/submit/:caseId',
+        name: 'AppealSubmit',
+        component: () => import('@/views/appeal/index.vue'),
+        meta: { title: '申请超时申诉', hideTabbar: true, handler: true }
+      },
+      {
+        path: 'appeal/:id',
+        name: 'AppealDetail',
+        component: () => import('@/views/appeal/AppealDetail.vue'),
+        meta: { title: '申诉详情', hideTabbar: true, handler: true }
       }
     ]
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('@/views/error/NotFound.vue'),
+    meta: { title: '页面不存在', hideTabbar: true }
   }
 ]
 
@@ -89,7 +137,8 @@ function resolveRoles() {
 router.beforeEach((to, from, next) => {
   const roles = resolveRoles()
   const handlerOnly = isHandlerMobileUser(roles) && !isCollectorMobileUser(roles)
-  const appTitle = handlerOnly ? '智慧城管处置端' : '智慧城管采集端'
+  const deptOnly = isDeptMobileUser(roles) && !isCollectorMobileUser(roles) && !isHandlerMobileUser(roles)
+  const appTitle = (handlerOnly || deptOnly) ? '智慧城管处置端' : '智慧城管采集端'
   document.title = to.meta.title ? `${to.meta.title} - ${appTitle}` : appTitle
 
   const token = getToken()
@@ -111,6 +160,13 @@ router.beforeEach((to, from, next) => {
       } else {
         next('/handle')
       }
+      return
+    }
+  }
+
+  if (deptOnly) {
+    if (to.meta.collectorOnly || to.path === '/home' || to.path === '/report' || to.path === '/task') {
+      next('/handle')
       return
     }
   }

@@ -1,4 +1,7 @@
 import request from '@/utils/request'
+import { uploadFile } from '@/api/file'
+
+export { uploadFile }
 
 // 问题上报
 export function reportCase(data) {
@@ -101,20 +104,5 @@ export function getConditions(smallId) {
   return request({
     url: `/config/standard/conditions/${smallId}`,
     method: 'get'
-  })
-}
-
-// 文件上传
-export function uploadFile(file) {
-  const formData = new FormData()
-  formData.append('file', file)
-  return request({
-    url: '/file/upload',
-    method: 'post',
-    data: formData,
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    },
-    skipErrorToast: true
   })
 }

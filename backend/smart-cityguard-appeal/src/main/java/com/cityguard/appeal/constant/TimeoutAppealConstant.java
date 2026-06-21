@@ -10,6 +10,7 @@ public final class TimeoutAppealConstant {
 
     public static final String APPLY_TYPE = "timeout_handle";
 
+    public static final String STATUS_PENDING_DEPT = "pending_dept";
     public static final String STATUS_PENDING_DISPATCHER = "pending_dispatcher";
     public static final String STATUS_PENDING_ACCEPTOR = "pending_acceptor";
     public static final String STATUS_APPROVED = "approved";

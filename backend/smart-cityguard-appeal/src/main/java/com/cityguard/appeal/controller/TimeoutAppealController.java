@@ -7,6 +7,7 @@ import com.cityguard.appeal.dto.TimeoutAppealSubmitRequest;
 import com.cityguard.appeal.entity.AppealApply;
 import com.cityguard.appeal.service.TimeoutAppealService;
 import com.cityguard.auth.entity.LoginUser;
+import com.cityguard.caseinfo.entity.CaseInfo;
 import com.cityguard.common.exception.BusinessException;
 import com.cityguard.common.result.Result;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +28,12 @@ public class TimeoutAppealController {
     @PostMapping("/submit")
     public Result<AppealApply> submit(@RequestBody TimeoutAppealSubmitRequest request) {
         return Result.success(timeoutAppealService.submit(request, currentUser()));
+    }
+
+    @Operation(summary = "部门审核（处置人员提交的申诉）")
+    @PostMapping("/dept-review")
+    public Result<AppealApply> deptReview(@RequestBody TimeoutAppealReviewRequest request) {
+        return Result.success(timeoutAppealService.deptReview(request, currentUser()));
     }
 
     @Operation(summary = "派遣员初审")
@@ -61,6 +68,15 @@ public class TimeoutAppealController {
             @RequestParam(required = false) String tab,
             @RequestParam(required = false) String caseCode) {
         return Result.success(timeoutAppealService.list(pageNum, pageSize, tab, caseCode, currentUser()));
+    }
+
+    @Operation(summary = "可申诉案件列表（超时已结案且未申诉）")
+    @GetMapping("/appealable")
+    public Result<Page<CaseInfo>> appealableCases(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) String caseCode) {
+        return Result.success(timeoutAppealService.listAppealableCases(pageNum, pageSize, caseCode, currentUser()));
     }
 
     private static LoginUser currentUser() {

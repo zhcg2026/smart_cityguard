@@ -2,13 +2,27 @@
   <div class="mine-page">
     <!-- 用户信息 -->
     <div class="user-card">
-      <van-image round width="60" height="60" :src="userInfo.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+      <div class="avatar-wrap" @click="showAvatarSheet = true">
+        <van-image round width="60" height="60" :src="userInfo.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+        <div class="avatar-edit">
+          <van-icon name="photograph" size="14" />
+        </div>
+      </div>
       <div class="info">
         <div class="name">{{ displayName }}</div>
-        <div class="phone">{{ userInfo.phone || '' }}</div>
+        <div class="grid">{{ gridDisplayName }}</div>
       </div>
-      <van-icon name="arrow" />
+      <van-badge :content="unreadCount || undefined" :max="99">
+        <van-icon name="bell" size="24" @click="goMessage" />
+      </van-badge>
     </div>
+
+    <van-action-sheet
+      v-model:show="showAvatarSheet"
+      :actions="avatarActions"
+      cancel-text="取消"
+      @select="onAvatarAction"
+    />
 
     <!-- 统计数据（采集员） -->
     <van-grid v-if="showCollectorMenu" :column-num="3" class="stat-grid">
@@ -62,18 +76,29 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { showDialog, showToast } from 'vant'
+import { showDialog, showToast, showLoadingToast, closeToast } from 'vant'
 import { useUserStore } from '@/stores/user'
 import { isCollectorMobileUser, isHandlerMobileUser, primaryRoleLabel } from '@/utils/roleAccess'
+import { getMyCaseList } from '@/api/case'
+import { getCheckTaskList, getVerifyTaskList } from '@/api/task'
+import { updateAvatar, uploadFile } from '@/api/user'
 
 const router = useRouter()
 const userStore = useUserStore()
+const unreadCount = inject('unreadCount', ref(0))
 
 const userInfo = computed(() => userStore.userInfo)
 const roles = computed(() => userStore.roles?.length ? userStore.roles : userInfo.value?.roles || [])
 const displayName = computed(() => userInfo.value.realName || primaryRoleLabel(roles.value) || '用户')
+const gridDisplayName = computed(() => {
+  if (isHandlerMobileUser(roles.value) && !isCollectorMobileUser(roles.value)) {
+    return userInfo.value?.departmentName?.trim() || '处置部门'
+  }
+  const name = userInfo.value?.gridName?.trim()
+  return name || '未绑定片区'
+})
 const showCollectorMenu = computed(() => isCollectorMobileUser(roles.value))
 const showHandlerStats = computed(() => isHandlerMobileUser(roles.value))
 
@@ -82,6 +107,62 @@ const stats = ref({
   verifyCount: 0,
   checkCount: 0
 })
+
+const showAvatarSheet = ref(false)
+const avatarActions = [
+  { name: '拍照', value: 'camera' },
+  { name: '从相册选择', value: 'album' }
+]
+const fileInput = ref(null)
+
+function goMessage() {
+  router.push('/message')
+}
+
+function onAvatarAction(action) {
+  showAvatarSheet.value = false
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  if (action.value === 'camera') {
+    input.capture = 'environment'
+  }
+  input.onchange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      showLoadingToast({ message: '上传中...', forbidClick: true, duration: 0 })
+      const res = await uploadFile(file)
+      const url = typeof res.data === 'string' ? res.data : res.data?.url
+      if (!url) throw new Error('上传失败')
+      await updateAvatar({ avatar: url })
+      userStore.userInfo.avatar = url
+      showToast('头像已更新')
+    } catch {
+      showToast('头像上传失败')
+    } finally {
+      closeToast()
+    }
+  }
+  input.click()
+}
+
+async function loadStats() {
+  try {
+    const [caseRes, checkRes, verifyRes] = await Promise.all([
+      getMyCaseList({ pageNum: 1, pageSize: 1 }),
+      getCheckTaskList({ pageNum: 1, pageSize: 1 }),
+      getVerifyTaskList({ pageNum: 1, pageSize: 1 })
+    ])
+    stats.value.reportCount = caseRes.data?.total || 0
+    stats.value.checkCount = checkRes.data?.total || 0
+    stats.value.verifyCount = verifyRes.data?.total || 0
+  } catch {
+    /* ignore */
+  }
+}
+
+onMounted(loadStats)
 
 async function handleLogout() {
   try {
@@ -113,6 +194,24 @@ async function handleLogout() {
   background: linear-gradient(135deg, #1989fa, #36cfc9);
   color: #fff;
 
+  .avatar-wrap {
+    position: relative;
+
+    .avatar-edit {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 22px;
+      height: 22px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+  }
+
   .info {
     flex: 1;
     margin-left: 16px;
@@ -122,8 +221,8 @@ async function handleLogout() {
       font-weight: bold;
     }
 
-    .phone {
-      font-size: 14px;
+    .grid {
+      font-size: 12px;
       margin-top: 4px;
     }
   }

@@ -22,7 +22,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { isHandlerMobileUser, isCollectorMobileUser } from '@/utils/roleAccess'
+import { isHandlerMobileUser, isCollectorMobileUser, isDeptMobileUser } from '@/utils/roleAccess'
 
 const router = useRouter()
 const route = useRoute()
@@ -33,19 +33,31 @@ const tabs = computed(() => {
   const roles = userStore.roles?.length ? userStore.roles : userStore.userInfo?.roles || []
   const handler = isHandlerMobileUser(roles)
   const collector = isCollectorMobileUser(roles)
+  const dept = isDeptMobileUser(roles)
+  const canAppeal = handler || dept
 
   if (handler && !collector) {
     return [
-      { path: '/handle', label: '案件列表', icon: 'todo-list-o' },
+      { path: '/handle', label: '首页', icon: 'home-o' },
+      ...(canAppeal ? [{ path: '/appeal', label: '申诉', icon: 'comment-o' }] : []),
       { path: '/mine', label: '我的', icon: 'user-o' }
     ]
   }
 
   if (handler && collector) {
     return [
-      { path: '/handle', label: '案件列表', icon: 'todo-list-o' },
+      { path: '/handle', label: '首页', icon: 'home-o' },
+      ...(canAppeal ? [{ path: '/appeal', label: '申诉', icon: 'comment-o' }] : []),
       { path: '/report', label: '上报', icon: 'edit' },
       { path: '/task', label: '我的任务', icon: 'orders-o' },
+      { path: '/mine', label: '我的', icon: 'user-o' }
+    ]
+  }
+
+  if (dept) {
+    return [
+      { path: '/handle', label: '首页', icon: 'home-o' },
+      { path: '/appeal', label: '申诉', icon: 'comment-o' },
       { path: '/mine', label: '我的', icon: 'user-o' }
     ]
   }
@@ -65,7 +77,7 @@ const keepAliveNames = computed(() => {
 
 const showTabbar = computed(() => {
   const p = route.path
-  return !p.startsWith('/handle/') && !p.startsWith('/task/verify/') && !p.startsWith('/task/check/')
+  return !p.startsWith('/handle/') && !p.startsWith('/task/verify/') && !p.startsWith('/task/check/') && !p.startsWith('/appeal/submit/') && !p.match(/^\/appeal\/\d+$/)
 })
 
 watch(

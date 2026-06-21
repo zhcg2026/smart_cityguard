@@ -48,7 +48,11 @@ export function useMessagePoll() {
           message: `${msg.msgTitle || '新消息'}\n${msg.msgContent || ''}`,
           duration: 5000,
           onClick: () => {
-            if (msg.bizType === 'case') {
+            if (msg.bizType === 'check_task' && msg.bizId) {
+              router.push(`/task/check/${msg.bizId}`)
+            } else if (msg.bizType === 'verify_task' && msg.bizId) {
+              router.push(`/task/verify/${msg.bizId}`)
+            } else if (msg.bizType === 'case') {
               router.push('/task')
             }
           }

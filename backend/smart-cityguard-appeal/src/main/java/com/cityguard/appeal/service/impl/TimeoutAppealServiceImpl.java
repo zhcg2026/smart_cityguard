@@ -40,6 +40,7 @@ import java.util.Set;
 public class TimeoutAppealServiceImpl implements TimeoutAppealService {
 
     private static final String ROLE_DEPT = "DEPT";
+    private static final String ROLE_HANDLER = "HANDLER";
     private static final String ROLE_DISPATCHER = "DISPATCHER";
     private static final String ROLE_ACCEPTOR = "ACCEPTOR";
     private static final String ROLE_ADMIN = "ADMIN";
@@ -59,7 +60,7 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
     @Override
     @Transactional
     public AppealApply submit(TimeoutAppealSubmitRequest request, LoginUser user) {
-        assertRole(user, ROLE_DEPT);
+        assertRole(user, ROLE_DEPT, ROLE_HANDLER);
         if (request == null || request.getCaseId() == null) {
             throw new BusinessException("请选择案件");
         }
@@ -78,6 +79,8 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
             throw new BusinessException("该案件已提起过申诉，不可再次申请");
         }
 
+        boolean isHandler = hasRole(user.getRoles(), ROLE_HANDLER) && !hasRole(user.getRoles(), ROLE_DEPT);
+
         AppealApply appeal = new AppealApply();
         appeal.setAppealCode(generateAppealCode());
         appeal.setCaseId(caseInfo.getId());
@@ -90,7 +93,9 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         appeal.setApplyUserId(user.getId());
         appeal.setApplyUserName(displayName(user));
         appeal.setApplyTime(LocalDateTime.now());
-        appeal.setAppealStatus(TimeoutAppealConstant.STATUS_PENDING_DISPATCHER);
+        appeal.setAppealStatus(isHandler
+                ? TimeoutAppealConstant.STATUS_PENDING_DEPT
+                : TimeoutAppealConstant.STATUS_PENDING_DISPATCHER);
         appealApplyMapper.insert(appeal);
 
         saveAttachments(appeal.getId(), request.getAttachmentPaths(), user);
@@ -98,6 +103,30 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         caseInfo.setAppealStatus(TimeoutAppealConstant.CASE_APPEAL_PENDING);
         caseInfoMapper.updateById(caseInfo);
 
+        return appeal;
+    }
+
+    @Override
+    @Transactional
+    public AppealApply deptReview(TimeoutAppealReviewRequest request, LoginUser user) {
+        assertRole(user, ROLE_DEPT, ROLE_ADMIN, ROLE_SUPERVISOR);
+        AppealApply appeal = requireTimeoutAppeal(request.getAppealId());
+        if (!TimeoutAppealConstant.STATUS_PENDING_DEPT.equals(appeal.getAppealStatus())) {
+            throw new BusinessException("当前状态不可部门审核");
+        }
+        boolean approved = Boolean.TRUE.equals(request.getApproved());
+        if (!approved && !StringUtils.hasText(request.getOpinion())) {
+            throw new BusinessException("打回时请填写意见");
+        }
+        saveReview(appeal, "dept_review", "处置部门审核",
+                approved, request.getOpinion(), user);
+
+        if (approved) {
+            appeal.setAppealStatus(TimeoutAppealConstant.STATUS_PENDING_DISPATCHER);
+            appealApplyMapper.updateById(appeal);
+        } else {
+            finalizeRejected(appeal, request.getOpinion());
+        }
         return appeal;
     }
 
@@ -162,6 +191,7 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         if (caseInfo != null) {
             fillCaseSummary(vo, caseInfo);
         }
+        vo.setCanDeptReview(canDeptReview(appeal, user));
         vo.setCanDispatcherReview(canDispatcherReview(appeal, user));
         vo.setCanAcceptorReview(canAcceptorReview(appeal, user));
         return vo;
@@ -194,14 +224,75 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         return appealApplyMapper.selectPage(page, w);
     }
 
+    @Override
+    public Page<CaseInfo> listAppealableCases(Integer pageNum, Integer pageSize, String caseCode, LoginUser user) {
+        int pn = pageNum != null && pageNum > 0 ? pageNum : 1;
+        int ps = pageSize != null && pageSize > 0 ? Math.min(pageSize, 100) : 10;
+        Page<CaseInfo> page = new Page<>(pn, ps);
+
+        Long deptId = null;
+        Long userId = null;
+        List<String> roles = user.getRoles();
+        if (hasAnyRole(roles, ROLE_ADMIN, ROLE_SUPERVISOR)) {
+            // admin sees all
+        } else if (hasRole(roles, ROLE_DEPT) || hasRole(roles, ROLE_HANDLER)) {
+            deptId = requireUserDeptId(user);
+            userId = user.getId();
+        } else {
+            page.setRecords(List.of());
+            return page;
+        }
+
+        LambdaQueryWrapper<CaseInfo> w = new LambdaQueryWrapper<>();
+        w.eq(CaseInfo::getIsDeleted, 0);
+        w.in(CaseInfo::getCaseStatus, CaseStatusConstant.CLOSED, CaseStatusConstant.FORCED_CLOSE);
+        w.isNull(CaseInfo::getHandleTimeoutExempt).or().eq(CaseInfo::getHandleTimeoutExempt, 0);
+        w.and(q -> q
+            .isNull(CaseInfo::getAppealStatus)
+            .or()
+            .notIn(CaseInfo::getAppealStatus,
+                TimeoutAppealConstant.CASE_APPEAL_PENDING,
+                TimeoutAppealConstant.CASE_APPEAL_APPROVED)
+        );
+        // 处置阶段超时的案件
+        w.apply("id IN (SELECT DISTINCT case_id FROM case_timer_record WHERE timer_stage = 'handle' AND timer_status = 'timeout')");
+        if (deptId != null) {
+            w.eq(CaseInfo::getHandleDeptId, deptId);
+        }
+        if (userId != null && hasRole(roles, ROLE_HANDLER)) {
+            // 处置人员只能看到自己经办的
+            w.apply("id IN (SELECT DISTINCT case_id FROM case_flow_record WHERE operator_id = {0})", userId);
+        }
+        if (StringUtils.hasText(caseCode)) {
+            w.like(CaseInfo::getCaseCode, caseCode.trim());
+        }
+        w.orderByDesc(CaseInfo::getCloseTime);
+        return caseInfoMapper.selectPage(page, w);
+    }
+
     private void applyListScope(LambdaQueryWrapper<AppealApply> w, String tab, LoginUser user) {
         List<String> roles = user.getRoles();
         if (hasAnyRole(roles, ROLE_ADMIN, ROLE_SUPERVISOR)) {
             applyTabFilter(w, tab, null);
             return;
         }
-        if (hasRole(roles, ROLE_DEPT)) {
+        boolean isDept = hasRole(roles, ROLE_DEPT);
+        boolean isHandler = hasRole(roles, ROLE_HANDLER);
+        if (isDept && isHandler) {
+            w.and(q -> q
+                .eq(AppealApply::getApplyUserId, user.getId())
+                .or()
+                .eq(AppealApply::getApplyDeptId, requireUserDeptId(user))
+            );
+            return;
+        }
+        if (isDept) {
             w.eq(AppealApply::getApplyDeptId, requireUserDeptId(user));
+            applyTabFilter(w, tab, null);
+            return;
+        }
+        if (isHandler) {
+            w.eq(AppealApply::getApplyUserId, user.getId());
             return;
         }
         if (hasRole(roles, ROLE_DISPATCHER)) {
@@ -379,6 +470,11 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
             return;
         }
         throw new BusinessException("无权查看该申诉");
+    }
+
+    private boolean canDeptReview(AppealApply appeal, LoginUser user) {
+        return hasAnyRole(user.getRoles(), ROLE_DEPT, ROLE_ADMIN, ROLE_SUPERVISOR)
+                && TimeoutAppealConstant.STATUS_PENDING_DEPT.equals(appeal.getAppealStatus());
     }
 
     private boolean canDispatcherReview(AppealApply appeal, LoginUser user) {

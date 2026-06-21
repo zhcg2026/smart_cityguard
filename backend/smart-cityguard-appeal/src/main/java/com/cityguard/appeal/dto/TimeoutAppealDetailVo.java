@@ -34,6 +34,7 @@ public class TimeoutAppealDetailVo {
     /** 是否已申诉豁免 */
     private Boolean handleTimeoutExempt;
 
+    private boolean canDeptReview;
     private boolean canDispatcherReview;
     private boolean canAcceptorReview;
 }

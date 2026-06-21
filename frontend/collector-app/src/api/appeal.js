@@ -8,17 +8,9 @@ export function submitTimeoutAppeal(data) {
   })
 }
 
-export function dispatcherReviewTimeoutAppeal(data) {
+export function deptReviewTimeoutAppeal(data) {
   return request({
-    url: '/appeal/timeout/dispatcher-review',
-    method: 'post',
-    data
-  })
-}
-
-export function acceptorReviewTimeoutAppeal(data) {
-  return request({
-    url: '/appeal/timeout/acceptor-review',
+    url: '/appeal/timeout/dept-review',
     method: 'post',
     data
   })

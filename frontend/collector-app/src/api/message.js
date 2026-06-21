@@ -14,6 +14,27 @@ export function getUnreadMessages() {
   })
 }
 
+export function getUserMessages() {
+  return request({
+    url: '/message/list',
+    method: 'get'
+  })
+}
+
+export function markMessageRead(id) {
+  return request({
+    url: `/message/read/${id}`,
+    method: 'post'
+  })
+}
+
+export function markAllMessagesRead() {
+  return request({
+    url: '/message/read/all',
+    method: 'post'
+  })
+}
+
 /** 当前用户可见的今日提示（与管理端工作台同源） */
 export function getDailyTipList(params) {
   return request({

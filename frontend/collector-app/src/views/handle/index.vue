@@ -1,19 +1,74 @@
 <template>
   <div class="handle-page">
-    <van-nav-bar title="案件处置" />
+    <!-- 头部 -->
+    <div class="header">
+      <div class="user-info">
+        <van-image round width="40" height="40" :src="userInfo.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+        <div class="info">
+          <div class="name">{{ displayName }}</div>
+          <div class="dept">{{ departmentName }}</div>
+        </div>
+      </div>
+      <van-badge :content="unreadCount || undefined" :max="99">
+        <van-icon name="bell" size="24" @click="goMessage" />
+      </van-badge>
+    </div>
 
-    <van-tabs v-model:active="activeTab" @change="onTabChange">
-      <van-tab title="待处置" name="pending" />
-      <van-tab title="经办案件" name="handled" />
-    </van-tabs>
+    <!-- 今日提示 -->
+    <van-cell-group title="今日提示" inset>
+      <van-cell
+        v-for="tip in dailyTips"
+        :key="tip.id"
+        :title="tip.title || tip.content"
+        :label="tip.title && tip.content ? tip.content : ''"
+        icon="info-o"
+        is-link
+        @click="openContentDetail(tip)"
+      />
+      <van-empty v-if="!contentLoading && dailyTips.length === 0" description="暂无提示" image-size="60" />
+    </van-cell-group>
 
-    <van-list
-      v-model:loading="loading"
-      :finished="finished"
-      finished-text="没有更多了"
-      @load="loadCases"
-    >
-      <van-cell-group inset>
+    <!-- 公文通告 -->
+    <van-cell-group title="公文通告" inset>
+      <van-cell
+        v-for="item in announcements"
+        :key="item.id"
+        :title="item.title"
+        :value="formatPublishTime(item.publishTime)"
+        is-link
+        @click="openContentDetail(item)"
+      />
+      <van-empty v-if="!contentLoading && announcements.length === 0" description="暂无通告" image-size="60" />
+    </van-cell-group>
+
+    <van-popup v-model:show="detailVisible" round position="bottom" :style="{ maxHeight: '70%' }">
+      <div class="content-detail">
+        <div class="content-detail__title">{{ detailItem.title || '详情' }}</div>
+        <div v-if="detailItem.publishTime" class="content-detail__meta">
+          {{ formatPublishTime(detailItem.publishTime) }}
+          <span v-if="detailItem.publisherName"> · {{ detailItem.publisherName }}</span>
+        </div>
+        <div class="content-detail__body">{{ detailItem.content || '—' }}</div>
+        <van-button block type="primary" @click="detailVisible = false">关闭</van-button>
+      </div>
+    </van-popup>
+
+    <!-- 案件列表 -->
+    <div class="case-section">
+      <van-tabs v-model:active="activeTab" @change="onTabChange">
+        <van-tab title="待处置" name="pending" />
+        <van-tab title="经办案件" name="handled" />
+      </van-tabs>
+
+      <van-search v-model="searchKeyword" placeholder="搜索案件编号" @search="onSearch" @clear="onSearch" shape="round" />
+
+      <van-list
+        v-model:loading="loading"
+        :finished="finished"
+        finished-text="没有更多了"
+        @load="loadCases"
+      >
+      <van-cell-group>
         <van-cell
           v-for="item in caseList"
           :key="item.id"
@@ -38,23 +93,75 @@
       </van-cell-group>
       <van-empty v-if="caseList.length === 0 && finished" :description="emptyText" />
     </van-list>
+    </div>
   </div>
 </template>
 
 <script setup>
 defineOptions({ name: 'HandleList' })
 
-import { ref } from 'vue'
+import { ref, computed, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 import { getPendingCaseList } from '@/api/case'
+import { getDailyTipList, getAnnouncementList } from '@/api/message'
 import { formatRemainingText, isRowStageOverdue, rowStageDeadline } from '@/utils/caseTimer'
+import { isHandlerMobileUser, isDeptMobileUser } from '@/utils/roleAccess'
 
 const router = useRouter()
+const userStore = useUserStore()
+const unreadCount = inject('unreadCount', ref(0))
+
+const userInfo = computed(() => userStore.userInfo)
+const roles = computed(() => userStore.roles?.length ? userStore.roles : userInfo.value?.roles || [])
+const displayName = computed(() => userInfo.value.realName || '处置人员')
+const departmentName = computed(() => userInfo.value?.departmentName?.trim() || '处置部门')
+
 const activeTab = ref('pending')
+const searchKeyword = ref('')
 const caseList = ref([])
 const loading = ref(false)
 const finished = ref(false)
 const pageNum = ref(1)
+
+const dailyTips = ref([])
+const announcements = ref([])
+const contentLoading = ref(false)
+const detailVisible = ref(false)
+const detailItem = ref({})
+
+function goMessage() {
+  router.push('/message')
+}
+
+function formatPublishTime(value) {
+  if (!value) return ''
+  const text = String(value)
+  return text.length >= 16 ? text.slice(0, 16).replace('T', ' ') : text
+}
+
+function openContentDetail(row) {
+  if (!row) return
+  detailItem.value = { ...row }
+  detailVisible.value = true
+}
+
+async function loadContent() {
+  contentLoading.value = true
+  try {
+    const [tipRes, annRes] = await Promise.all([
+      getDailyTipList({ limit: 5 }),
+      getAnnouncementList({ limit: 5 })
+    ])
+    dailyTips.value = tipRes.data || []
+    announcements.value = annRes.data || []
+  } catch {
+    dailyTips.value = []
+    announcements.value = []
+  } finally {
+    contentLoading.value = false
+  }
+}
 
 const statusMap = {
   handling: '处置中',
@@ -112,18 +219,37 @@ function onTabChange(name) {
   pageNum.value = 1
   finished.value = false
   loading.value = true
+  searchKeyword.value = ''
   emptyText.value = name === 'pending' ? '暂无待处置案件' : '暂无经办案件'
+  loadCases()
+}
+
+function onSearch() {
+  caseList.value = []
+  pageNum.value = 1
+  finished.value = false
+  loading.value = true
   loadCases()
 }
 
 async function loadCases() {
   try {
-    const status = activeTab.value === 'pending' ? 'handling' : 'handler_handled'
-    const res = await getPendingCaseList({
+    const isDept = isDeptMobileUser(roles.value)
+    let status
+    if (activeTab.value === 'pending') {
+      status = isDept ? 'handler_dept_todo' : 'handling'
+    } else {
+      status = 'handler_handled'
+    }
+    const params = {
       status,
       pageNum: pageNum.value,
       pageSize: 10
-    })
+    }
+    if (searchKeyword.value.trim()) {
+      params.caseCode = searchKeyword.value.trim()
+    }
+    const res = await getPendingCaseList(params)
     const records = res.data?.records || []
     caseList.value.push(...records)
     loading.value = false
@@ -142,6 +268,11 @@ async function loadCases() {
 function goDetail(id) {
   router.push(`/handle/${id}`)
 }
+
+onMounted(async () => {
+  await userStore.getUserInfo().catch(() => {})
+  await loadContent()
+})
 </script>
 
 <style scoped>
@@ -149,6 +280,70 @@ function goDetail(id) {
   min-height: 100vh;
   background: #f7f8fa;
   padding-bottom: 60px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #1989fa, #36cfc9);
+
+  .user-info {
+    display: flex;
+    align-items: center;
+
+    .info {
+      margin-left: 12px;
+      color: #fff;
+
+      .name {
+        font-size: 16px;
+        font-weight: bold;
+      }
+
+      .dept {
+        font-size: 12px;
+        margin-top: 4px;
+      }
+    }
+  }
+
+  :deep(.van-icon) {
+    color: #fff;
+  }
+}
+
+.case-section {
+  margin-top: 12px;
+  background: #f7f8fa;
+  padding: 0 16px;
+}
+
+.content-detail {
+  padding: 20px 16px 24px;
+
+  &__title {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  &__meta {
+    font-size: 12px;
+    color: #969799;
+    margin-bottom: 12px;
+  }
+
+  &__body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #323233;
+    white-space: pre-wrap;
+    max-height: 45vh;
+    overflow-y: auto;
+    margin-bottom: 16px;
+  }
 }
 
 .timer-value {

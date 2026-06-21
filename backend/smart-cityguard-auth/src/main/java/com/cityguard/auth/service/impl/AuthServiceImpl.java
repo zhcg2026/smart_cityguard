@@ -75,7 +75,13 @@ public class AuthServiceImpl implements AuthService {
         loginUser.setPhone(user.getPhone());
         loginUser.setEmail(user.getEmail());
         loginUser.setDepartmentId(user.getDepartmentId());
-        loginUser.setDepartmentName(user.getDepartmentName());
+
+        if (user.getDepartmentId() != null) {
+            SysDepartment dept = sysDepartmentMapper.selectById(user.getDepartmentId());
+            if (dept != null) {
+                loginUser.setDepartmentName(dept.getDeptName());
+            }
+        }
 
         List<String> roles = sysUserMapper.selectRoleCodesByUserId(user.getId());
         loginUser.setRoles(roles);

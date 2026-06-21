@@ -1779,7 +1779,7 @@ public class CaseServiceImpl implements CaseService {
                 operatorId, operatorName, collector.getId(), task.getCollectorName());
         notifyUserTask(collector.getId(), "新核查任务",
                 "案件 " + caseInfo.getCaseCode() + "，请现场核查",
-                BIZ_CASE, caseInfo.getId(), caseInfo.getCaseCode());
+                BIZ_CHECK_TASK, task.getId(), caseInfo.getCaseCode());
         return getCaseDetail(caseInfo.getId(), operatorId, operatorRoles);
     }
 
@@ -1838,7 +1838,7 @@ public class CaseServiceImpl implements CaseService {
                 operatorId, operatorName, collector.getId(), task.getCollectorName());
         notifyUserTask(collector.getId(), "新核实任务",
                 "案件 " + caseInfo.getCaseCode() + "，请现场核实",
-                BIZ_CASE, caseInfo.getId(), caseInfo.getCaseCode());
+                BIZ_VERIFY_TASK, task.getId(), caseInfo.getCaseCode());
         return getCaseDetail(caseInfo.getId(), operatorId, operatorRoles);
     }
 

@@ -9,7 +9,9 @@
           <div class="grid">{{ gridDisplayName }}</div>
         </div>
       </div>
-      <van-icon name="bell" size="24" @click="goMessage" />
+      <van-badge :content="unreadCount || undefined" :max="99">
+        <van-icon name="bell" size="24" @click="goMessage" />
+      </van-badge>
     </div>
 
     <!-- 快捷功能 -->
@@ -27,7 +29,7 @@
         :label="tip.title && tip.content ? tip.content : ''"
         icon="info-o"
         is-link
-        @click="openContentDetail(tip, 'dailytip')"
+        @click="openContentDetail(tip)"
       />
       <van-empty v-if="!contentLoading && dailyTips.length === 0" description="暂无提示" image-size="60" />
     </van-cell-group>
@@ -40,7 +42,7 @@
         :title="item.title"
         :value="formatPublishTime(item.publishTime)"
         is-link
-        @click="openContentDetail(item, 'announcement')"
+        @click="openContentDetail(item)"
       />
       <van-empty v-if="!contentLoading && announcements.length === 0" description="暂无通告" image-size="60" />
     </van-cell-group>
@@ -97,25 +99,29 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getToken } from '@/utils/auth'
 import { getMyCaseList } from '@/api/case'
 import { getCheckTaskList, getVerifyTaskList } from '@/api/task'
+import { isCollectorMobileUser, isHandlerMobileUser } from '@/utils/roleAccess'
 import {
   getDailyTipList,
-  getDailyTipDetail,
-  getAnnouncementList,
-  getAnnouncementDetail
+  getAnnouncementList
 } from '@/api/message'
 import { formatTaskRemaining, formatDateTimeShort } from '@/utils/taskTimer'
 
 const router = useRouter()
 const userStore = useUserStore()
+const unreadCount = inject('unreadCount', ref(0))
 
 const userInfo = computed(() => userStore.userInfo)
+const roles = computed(() => userStore.roles?.length ? userStore.roles : userInfo.value?.roles || [])
 const gridDisplayName = computed(() => {
+  if (isHandlerMobileUser(roles.value) && !isCollectorMobileUser(roles.value)) {
+    return userInfo.value?.departmentName?.trim() || '处置部门'
+  }
   const name = userInfo.value?.gridName?.trim()
   return name || '未绑定片区'
 })
@@ -225,21 +231,10 @@ function formatPublishTime(value) {
   return text.length >= 16 ? text.slice(0, 16).replace('T', ' ') : text
 }
 
-async function openContentDetail(row, type) {
-  if (!row?.id) return
+function openContentDetail(row) {
+  if (!row) return
   detailItem.value = { ...row }
   detailVisible.value = true
-  try {
-    const res =
-      type === 'dailytip'
-        ? await getDailyTipDetail(row.id)
-        : await getAnnouncementDetail(row.id)
-    if (res.data) {
-      detailItem.value = res.data
-    }
-  } catch {
-    /* 列表数据兜底展示 */
-  }
 }
 
 onMounted(async () => {
@@ -261,7 +256,7 @@ onBeforeUnmount(() => {
 })
 
 function goMessage() {
-  router.push('/mine')
+  router.push('/message')
 }
 </script>
 

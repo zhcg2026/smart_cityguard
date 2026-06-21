@@ -165,6 +165,17 @@
         >
           回退处置部门
         </van-button>
+        <van-button
+          v-if="canAppeal"
+          round
+          block
+          plain
+          type="danger"
+          class="return-btn"
+          @click="goAppeal"
+        >
+          申请超时申诉
+        </van-button>
       </div>
     </template>
     <van-notice-bar v-else-if="caseInfo.caseStatus === 'handling'" color="#ed6a0c" background="#fffbe8" text="该案件未指派给您，无法提交处置结果" />
@@ -277,6 +288,16 @@ const suspendMaxDate = (() => {
 })()
 
 const handleTimer = computed(() => buildHandleTimerDisplay(caseInfo.value))
+
+const canAppeal = computed(() => {
+  const c = caseInfo.value
+  if (!c?.id) return false
+  const closed = c.caseStatus === 'closed' || c.caseStatus === 'forced_close'
+  if (!closed) return false
+  if (c.handleTimeoutExempt === 1) return false
+  if (c.appealStatus === 'approved' || c.appealStatus === 'pending') return false
+  return true
+})
 
 const handleTimerBannerText = computed(() => {
   if (!handleTimer.value.show) return ''
@@ -642,6 +663,10 @@ async function onReturnDialogBeforeClose(action) {
   } finally {
     returning.value = false
   }
+}
+
+function goAppeal() {
+  router.push(`/appeal/submit/${route.params.id}`)
 }
 
 function goBack() {

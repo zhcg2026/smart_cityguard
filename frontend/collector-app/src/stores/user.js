@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { login, getUserInfo } from '@/api/user'
+import { login, getUserInfo, logout as apiLogout } from '@/api/user'
 import { getCollectorRespGrids } from '@/api/geo'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import { isCollectorMobileUser } from '@/utils/roleAccess'
@@ -68,6 +68,7 @@ export const useUserStore = defineStore('user', {
     },
 
     async logout() {
+      try { await apiLogout() } catch { /* ignore */ }
       removeToken()
       localStorage.removeItem('userInfo')
       this.token = ''

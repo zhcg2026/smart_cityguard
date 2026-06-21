@@ -19,9 +19,16 @@ export function isCollectorMobileUser(roles) {
   return hasRole(roles, RoleCode.COLLECTOR)
 }
 
+export function isDeptMobileUser(roles) {
+  return hasRole(roles, RoleCode.DEPT)
+}
+
 /** 登录后默认首页 */
 export function defaultHomePath(roles) {
   if (isHandlerMobileUser(roles) && !isCollectorMobileUser(roles)) {
+    return '/handle'
+  }
+  if (isDeptMobileUser(roles)) {
     return '/handle'
   }
   return '/home'
