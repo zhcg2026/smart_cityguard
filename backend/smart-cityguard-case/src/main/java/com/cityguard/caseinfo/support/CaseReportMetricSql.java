@@ -68,12 +68,10 @@ public final class CaseReportMetricSql {
                     " AND " + CLOSED_COND
                             + " AND deadline_time IS NOT NULL AND close_time > deadline_time "
                             + NOT_HANDLE_TIMEOUT_EXEMPT;
-            case CaseReportMetric.APPEAL_ON_TIME_CLOSE ->
-                    " AND " + CLOSED_COND + " AND handle_timeout_exempt = 1 "
-                            + "AND (deadline_time IS NULL OR close_time <= deadline_time) ";
-            case CaseReportMetric.APPEAL_OVERDUE_CLOSE ->
-                    " AND " + CLOSED_COND + " AND handle_timeout_exempt = 1 "
-                            + " AND deadline_time IS NOT NULL AND close_time > deadline_time ";
+            case CaseReportMetric.APPEAL_APPROVED ->
+                    " AND handle_timeout_exempt = 1 ";
+            case CaseReportMetric.APPEAL_REJECTED ->
+                    " AND appeal_status = 'rejected' ";
             default -> throw new BusinessException("未知反查指标: " + metricKey);
         };
     }

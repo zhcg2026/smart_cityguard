@@ -24,6 +24,6 @@ public final class CaseReportMetric {
     public static final String ON_TIME_CLOSE = "onTimeClose";
     public static final String CLOSED = "closed";
     public static final String OVERDUE_CLOSE = "overdueClose";
-    public static final String APPEAL_ON_TIME_CLOSE = "appealOnTimeClose";
-    public static final String APPEAL_OVERDUE_CLOSE = "appealOverdueClose";
+    public static final String APPEAL_APPROVED = "appealApproved";
+    public static final String APPEAL_REJECTED = "appealRejected";
 }

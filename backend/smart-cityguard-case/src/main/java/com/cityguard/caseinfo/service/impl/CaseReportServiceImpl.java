@@ -59,8 +59,8 @@ public class CaseReportServiceImpl implements CaseReportService {
                    SUM(CASE WHEN c.close_time IS NOT NULL AND c.case_status IN ('closed','forced_close') AND (c.deadline_time IS NULL OR c.close_time <= c.deadline_time OR c.handle_timeout_exempt = 1) THEN 1 ELSE 0 END) AS on_time_close_count,
                    SUM(CASE WHEN c.close_time IS NOT NULL AND c.case_status IN ('closed','forced_close') THEN 1 ELSE 0 END) AS closed_count,
                    SUM(CASE WHEN c.close_time IS NOT NULL AND c.case_status IN ('closed','forced_close') AND c.deadline_time IS NOT NULL AND c.close_time > c.deadline_time AND (c.handle_timeout_exempt IS NULL OR c.handle_timeout_exempt = 0) THEN 1 ELSE 0 END) AS overdue_close_count,
-                   SUM(CASE WHEN c.close_time IS NOT NULL AND c.case_status IN ('closed','forced_close') AND c.handle_timeout_exempt = 1 AND (c.deadline_time IS NULL OR c.close_time <= c.deadline_time) THEN 1 ELSE 0 END) AS appeal_on_time_close_count,
-                   SUM(CASE WHEN c.close_time IS NOT NULL AND c.case_status IN ('closed','forced_close') AND c.handle_timeout_exempt = 1 AND c.deadline_time IS NOT NULL AND c.close_time > c.deadline_time THEN 1 ELSE 0 END) AS appeal_overdue_close_count,
+                   SUM(CASE WHEN c.handle_timeout_exempt = 1 THEN 1 ELSE 0 END) AS appeal_approved_count,
+                   SUM(CASE WHEN c.appeal_status = 'rejected' THEN 1 ELSE 0 END) AS appeal_rejected_count,
                    COUNT(*) AS dept_case_total
             FROM case_info c
             WHERE c.handle_dept_id IS NOT NULL
@@ -149,8 +149,8 @@ public class CaseReportServiceImpl implements CaseReportService {
         r.setOnTimeCloseCount(rs.getLong("on_time_close_count"));
         r.setClosedCount(rs.getLong("closed_count"));
         r.setOverdueCloseCount(rs.getLong("overdue_close_count"));
-        r.setAppealOnTimeCloseCount(rs.getLong("appeal_on_time_close_count"));
-        r.setAppealOverdueCloseCount(rs.getLong("appeal_overdue_close_count"));
+        r.setAppealApprovedCount(rs.getLong("appeal_approved_count"));
+        r.setAppealRejectedCount(rs.getLong("appeal_rejected_count"));
         r.setDeptCaseTotal(rs.getLong("dept_case_total"));
         return r;
     }
@@ -184,8 +184,8 @@ public class CaseReportServiceImpl implements CaseReportService {
             t.setOnTimeCloseCount(t.getOnTimeCloseCount() + r.getOnTimeCloseCount());
             t.setClosedCount(t.getClosedCount() + r.getClosedCount());
             t.setOverdueCloseCount(t.getOverdueCloseCount() + r.getOverdueCloseCount());
-            t.setAppealOnTimeCloseCount(t.getAppealOnTimeCloseCount() + r.getAppealOnTimeCloseCount());
-            t.setAppealOverdueCloseCount(t.getAppealOverdueCloseCount() + r.getAppealOverdueCloseCount());
+            t.setAppealApprovedCount(t.getAppealApprovedCount() + r.getAppealApprovedCount());
+            t.setAppealRejectedCount(t.getAppealRejectedCount() + r.getAppealRejectedCount());
             t.setDeptCaseTotal(t.getDeptCaseTotal() + r.getDeptCaseTotal());
         }
         t.setCaseRatio(grandTotal > 0 ? new BigDecimal("100.00") : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));

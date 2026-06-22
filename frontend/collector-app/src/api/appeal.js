@@ -18,7 +18,7 @@ export function deptReviewTimeoutAppeal(data) {
 
 export function getTimeoutAppealDetail(id) {
   return request({
-    url: `/appeal/timeout/${id}`,
+    url: `/appeal/timeout/detail/${id}`,
     method: 'get'
   })
 }

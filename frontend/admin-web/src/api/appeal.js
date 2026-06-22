@@ -8,6 +8,14 @@ export function submitTimeoutAppeal(data) {
   })
 }
 
+export function deptReviewTimeoutAppeal(data) {
+  return request({
+    url: '/appeal/timeout/dept-review',
+    method: 'post',
+    data
+  })
+}
+
 export function dispatcherReviewTimeoutAppeal(data) {
   return request({
     url: '/appeal/timeout/dispatcher-review',
@@ -26,7 +34,7 @@ export function acceptorReviewTimeoutAppeal(data) {
 
 export function getTimeoutAppealDetail(id) {
   return request({
-    url: `/appeal/timeout/${id}`,
+    url: `/appeal/timeout/detail/${id}`,
     method: 'get'
   })
 }

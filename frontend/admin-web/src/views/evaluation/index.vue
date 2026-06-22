@@ -268,8 +268,8 @@ const metricColumns = [
   { prop: 'onTimeCloseCount', label: '按时结案', metricKey: 'onTimeClose', appealProp: 'appealOverdueCloseCount' },
   { prop: 'closedCount', label: '结案数', metricKey: 'closed' },
   { prop: 'overdueCloseCount', label: '超时结案', metricKey: 'overdueClose' },
-  { prop: 'appealOnTimeCloseCount', label: '申诉后按时结案', metricKey: 'appealOnTimeClose' },
-  { prop: 'appealOverdueCloseCount', label: '申诉后超时结案', metricKey: 'appealOverdueClose' }
+  { prop: 'appealApprovedCount', label: '超时申诉通过', metricKey: 'appealApproved' },
+  { prop: 'appealRejectedCount', label: '超时申诉未通过', metricKey: 'appealRejected' }
 ]
 
 const loading = ref(false)

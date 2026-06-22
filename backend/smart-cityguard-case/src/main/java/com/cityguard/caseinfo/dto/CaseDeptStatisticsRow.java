@@ -27,8 +27,8 @@ public class CaseDeptStatisticsRow {
     private long closedCount;
     private long overdueCloseCount;
     private long appealOverdueHandleCount;
-    private long appealOnTimeCloseCount;
-    private long appealOverdueCloseCount;
+    private long appealApprovedCount;
+    private long appealRejectedCount;
 
     /** 本部门案件占全部统计行案件数百分比（0–100，保留两位） */
     private BigDecimal caseRatio;

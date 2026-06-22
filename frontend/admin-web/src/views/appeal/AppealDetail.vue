@@ -103,6 +103,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   getTimeoutAppealDetail,
+  deptReviewTimeoutAppeal,
   dispatcherReviewTimeoutAppeal,
   acceptorReviewTimeoutAppeal
 } from '@/api/appeal'
@@ -122,10 +123,11 @@ const reviewForm = reactive({
 })
 
 const canReview = computed(
-  () => detail.value?.canDispatcherReview || detail.value?.canAcceptorReview
+  () => detail.value?.canDeptReview || detail.value?.canDispatcherReview || detail.value?.canAcceptorReview
 )
 
 const reviewTitle = computed(() => {
+  if (detail.value?.canDeptReview) return '部门审核'
   if (detail.value?.canDispatcherReview) return '派遣员初审'
   if (detail.value?.canAcceptorReview) return '受理员二审'
   return '审核'
@@ -167,7 +169,9 @@ async function submitReview() {
       approved: reviewForm.approved,
       opinion: reviewForm.opinion.trim() || undefined
     }
-    if (detail.value.canDispatcherReview) {
+    if (detail.value.canDeptReview) {
+      await deptReviewTimeoutAppeal(payload)
+    } else if (detail.value.canDispatcherReview) {
       await dispatcherReviewTimeoutAppeal(payload)
     } else {
       await acceptorReviewTimeoutAppeal(payload)

@@ -48,8 +48,17 @@ public class TimeoutAppealController {
         return Result.success(timeoutAppealService.acceptorReview(request, currentUser()));
     }
 
+    @Operation(summary = "可申诉案件列表（超时已结案且未申诉）")
+    @GetMapping("/appealable")
+    public Result<Page<CaseInfo>> appealableCases(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) String caseCode) {
+        return Result.success(timeoutAppealService.listAppealableCases(pageNum, pageSize, caseCode, currentUser()));
+    }
+
     @Operation(summary = "申诉详情")
-    @GetMapping("/{id}")
+    @GetMapping("/detail/{id}")
     public Result<TimeoutAppealDetailVo> detail(@PathVariable Long id) {
         return Result.success(timeoutAppealService.getDetail(id, currentUser()));
     }
@@ -68,15 +77,6 @@ public class TimeoutAppealController {
             @RequestParam(required = false) String tab,
             @RequestParam(required = false) String caseCode) {
         return Result.success(timeoutAppealService.list(pageNum, pageSize, tab, caseCode, currentUser()));
-    }
-
-    @Operation(summary = "可申诉案件列表（超时已结案且未申诉）")
-    @GetMapping("/appealable")
-    public Result<Page<CaseInfo>> appealableCases(
-            @RequestParam(defaultValue = "1") Integer pageNum,
-            @RequestParam(defaultValue = "10") Integer pageSize,
-            @RequestParam(required = false) String caseCode) {
-        return Result.success(timeoutAppealService.listAppealableCases(pageNum, pageSize, caseCode, currentUser()));
     }
 
     private static LoginUser currentUser() {

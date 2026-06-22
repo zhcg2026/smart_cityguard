@@ -5,13 +5,13 @@
         <div class="header-row">
           <span>处置超时申诉</span>
           <el-form :inline="true" class="filter-form" @submit.prevent="loadList">
-            <el-form-item label="视图">
+            <el-form-item v-if="!isReviewer" label="视图">
               <el-radio-group v-model="viewMode" @change="onViewModeChange">
                 <el-radio-button label="appealable">可申诉案件</el-radio-button>
                 <el-radio-button label="appealed">已申诉案件</el-radio-button>
               </el-radio-group>
             </el-form-item>
-            <el-form-item v-if="showTabFilter && viewMode === 'appealed'" label="状态">
+            <el-form-item v-if="showTabFilter && (isReviewer || viewMode === 'appealed')" label="状态">
               <el-radio-group v-model="tab" @change="onTabChange">
                 <el-radio-button label="pending">待办</el-radio-button>
                 <el-radio-button label="done">已办</el-radio-button>
@@ -29,7 +29,7 @@
       </template>
 
       <el-table v-loading="loading" :data="tableData" border stripe>
-        <template v-if="viewMode === 'appealable'">
+        <template v-if="!isReviewer && viewMode === 'appealable'">
           <el-table-column prop="caseCode" label="案件编号" width="180">
             <template #default="{ row }">
               <el-link type="primary" @click="goCase(row.id)">{{ row.caseCode }}</el-link>
@@ -127,6 +127,12 @@ const submitDialogVisible = ref(false)
 const submitting = ref(false)
 const submitForm = ref({ caseId: null, caseCode: '', appealDesc: '' })
 
+const REVIEWER_ROLES = [RoleCode.DISPATCHER, RoleCode.ACCEPTOR]
+const isReviewer = computed(() => {
+  const roles = userStore.roles || []
+  return roles.some(r => REVIEWER_ROLES.includes(r))
+})
+
 const showTabFilter = computed(() => {
   const roles = userStore.roles || []
   return (
@@ -140,7 +146,17 @@ const showTabFilter = computed(() => {
 async function loadList() {
   loading.value = true
   try {
-    if (viewMode.value === 'appealable') {
+    if (isReviewer.value) {
+      const params = {
+        pageNum: pageNum.value,
+        pageSize: pageSize.value,
+        caseCode: caseCode.value || undefined,
+        tab: tab.value
+      }
+      const res = await getTimeoutAppealList(params)
+      tableData.value = res.data?.records || []
+      total.value = res.data?.total || 0
+    } else if (viewMode.value === 'appealable') {
       const params = {
         pageNum: pageNum.value,
         pageSize: pageSize.value,

@@ -40,7 +40,7 @@
       />
     </van-cell-group>
 
-    <div v-if="detail.canDeptReview" class="review-btns">
+    <div v-if="canReview" class="review-btns">
       <van-button round block type="primary" @click="onReview(true)">审核通过</van-button>
       <van-button round block type="danger" plain class="mt-12" @click="onReview(false)">驳回</van-button>
     </div>
@@ -48,14 +48,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { showToast, showDialog, showImagePreview } from 'vant'
-import { getTimeoutAppealDetail, deptReviewTimeoutAppeal } from '@/api/appeal'
+import {
+  getTimeoutAppealDetail,
+  deptReviewTimeoutAppeal,
+  dispatcherReviewTimeoutAppeal,
+  acceptorReviewTimeoutAppeal
+} from '@/api/appeal'
 
 const router = useRouter()
 const route = useRoute()
 const detail = ref({})
+
+const canReview = computed(() => {
+  return detail.value.canDeptReview || detail.value.canDispatcherReview || detail.value.canAcceptorReview
+})
 
 function goBack() {
   router.back()
@@ -104,11 +113,18 @@ async function onReview(approved) {
 
 async function doReview(approved, opinion) {
   try {
-    await deptReviewTimeoutAppeal({
+    const payload = {
       appealId: detail.value.appeal?.id,
       approved,
       opinion
-    })
+    }
+    if (detail.value.canDeptReview) {
+      await deptReviewTimeoutAppeal(payload)
+    } else if (detail.value.canDispatcherReview) {
+      await dispatcherReviewTimeoutAppeal(payload)
+    } else if (detail.value.canAcceptorReview) {
+      await acceptorReviewTimeoutAppeal(payload)
+    }
     showToast(approved ? '审核已通过' : '已驳回')
     loadDetail()
   } catch {
