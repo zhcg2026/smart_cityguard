@@ -16,6 +16,22 @@ export function deptReviewTimeoutAppeal(data) {
   })
 }
 
+export function dispatcherReviewTimeoutAppeal(data) {
+  return request({
+    url: '/appeal/timeout/dispatcher-review',
+    method: 'post',
+    data
+  })
+}
+
+export function acceptorReviewTimeoutAppeal(data) {
+  return request({
+    url: '/appeal/timeout/acceptor-review',
+    method: 'post',
+    data
+  })
+}
+
 export function getTimeoutAppealDetail(id) {
   return request({
     url: `/appeal/timeout/detail/${id}`,

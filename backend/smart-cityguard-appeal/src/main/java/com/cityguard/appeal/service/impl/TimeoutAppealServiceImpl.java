@@ -22,10 +22,14 @@ import com.cityguard.caseinfo.mapper.CaseInfoMapper;
 import com.cityguard.common.constant.CaseStatusConstant;
 import com.cityguard.common.exception.BusinessException;
 import com.cityguard.auth.entity.LoginUser;
+import com.cityguard.common.spi.UserNotificationSender;
 import com.cityguard.timer.constant.TimerStageConstant;
 import com.cityguard.timer.entity.CaseTimerRecord;
 import com.cityguard.timer.mapper.CaseTimerRecordMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -35,9 +39,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TimeoutAppealServiceImpl implements TimeoutAppealService {
+
+    private static final String BIZ_APPEAL = "appeal";
 
     private static final String ROLE_DEPT = "DEPT";
     private static final String ROLE_HANDLER = "HANDLER";
@@ -56,6 +63,10 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
     private final CaseTimerRecordMapper caseTimerRecordMapper;
     private final SysUserMapper sysUserMapper;
     private final SysDepartmentMapper sysDepartmentMapper;
+    private final JdbcTemplate jdbcTemplate;
+
+    @Autowired(required = false)
+    private UserNotificationSender userNotificationSender;
 
     @Override
     @Transactional
@@ -103,6 +114,14 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         caseInfo.setAppealStatus(TimeoutAppealConstant.CASE_APPEAL_PENDING);
         caseInfoMapper.updateById(caseInfo);
 
+        if (isHandler) {
+            notifyDeptUsers(deptId, "新申诉待审核",
+                    displayName(user) + " 提交了超时申诉，请审核。案件编号：" + caseInfo.getCaseCode());
+        } else {
+            notifyAllDispatchers("新申诉待审核",
+                    displayName(user) + " 提交了超时申诉，请进一步审核。案件编号：" + caseInfo.getCaseCode());
+        }
+
         return appeal;
     }
 
@@ -124,8 +143,12 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         if (approved) {
             appeal.setAppealStatus(TimeoutAppealConstant.STATUS_PENDING_DISPATCHER);
             appealApplyMapper.updateById(appeal);
+            notifyAllDispatchers("申诉待派遣员审核",
+                    "部门已审核通过超时申诉，请进一步审核。案件编号：" + appeal.getCaseCode());
         } else {
             finalizeRejected(appeal, request.getOpinion());
+            notifyUser(appeal.getApplyUserId(), "申诉被驳回",
+                    "您的超时申诉（案件 " + appeal.getCaseCode() + "）已被部门驳回");
         }
         return appeal;
     }
@@ -148,8 +171,12 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         if (approved) {
             appeal.setAppealStatus(TimeoutAppealConstant.STATUS_PENDING_ACCEPTOR);
             appealApplyMapper.updateById(appeal);
+            notifyAllAcceptors("申诉待受理员审核",
+                    "派遣员已审核通过超时申诉，请进一步审核。案件编号：" + appeal.getCaseCode());
         } else {
             finalizeRejected(appeal, request.getOpinion());
+            notifyUser(appeal.getApplyUserId(), "申诉被驳回",
+                    "您的超时申诉（案件 " + appeal.getCaseCode() + "）已被派遣员驳回");
         }
         return appeal;
     }
@@ -171,8 +198,12 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
 
         if (approved) {
             finalizeApproved(appeal, request.getOpinion());
+            notifyUser(appeal.getApplyUserId(), "申诉已通过",
+                    "您的超时申诉已通过审核，案件 " + appeal.getCaseCode() + " 将免于超时处罚");
         } else {
             finalizeRejected(appeal, request.getOpinion());
+            notifyUser(appeal.getApplyUserId(), "申诉被驳回",
+                    "您的超时申诉（案件 " + appeal.getCaseCode() + "）已被受理员驳回");
         }
         return appeal;
     }
@@ -332,6 +363,76 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         }
     }
 
+    private void notifyUser(Long userId, String title, String content) {
+        if (userNotificationSender == null || userId == null) {
+            return;
+        }
+        try {
+            userNotificationSender.notifyUser(userId, title, content,
+                    BIZ_APPEAL, null, null);
+        } catch (Exception e) {
+            log.warn("发送申诉提醒失败 userId={}: {}", userId, e.getMessage());
+        }
+    }
+
+    private void notifyDeptUsers(Long deptId, String title, String content) {
+        if (userNotificationSender == null || deptId == null) {
+            return;
+        }
+        try {
+            List<Long> deptUserIds = jdbcTemplate.queryForList(
+                    """
+                    SELECT DISTINCT u.id FROM sys_user u
+                    INNER JOIN sys_role_user ru ON ru.user_id = u.id
+                    INNER JOIN sys_role r ON r.id = ru.role_id AND r.deleted = 0 AND r.role_code = ?
+                    WHERE u.deleted = 0 AND u.status = 1 AND u.department_id = ?
+                    """,
+                    Long.class, ROLE_DEPT, deptId);
+            userNotificationSender.notifyUsers(deptUserIds, title, content,
+                    BIZ_APPEAL, null, null);
+        } catch (Exception e) {
+            log.warn("发送部门申诉提醒失败 deptId={}: {}", deptId, e.getMessage());
+        }
+    }
+
+    private void notifyAllDispatchers(String title, String content) {
+        if (userNotificationSender == null) {
+            return;
+        }
+        try {
+            List<Long> dispatcherIds = jdbcTemplate.queryForList(
+                    """
+                    SELECT DISTINCT ru.user_id FROM sys_role_user ru
+                    INNER JOIN sys_role r ON r.id = ru.role_id AND r.deleted = 0 AND r.role_code = ?
+                    INNER JOIN sys_user u ON u.id = ru.user_id AND u.deleted = 0 AND u.status = 1
+                    """,
+                    Long.class, ROLE_DISPATCHER);
+            userNotificationSender.notifyUsers(dispatcherIds, title, content,
+                    BIZ_APPEAL, null, null);
+        } catch (Exception e) {
+            log.warn("发送派遣员申诉提醒失败: {}", e.getMessage());
+        }
+    }
+
+    private void notifyAllAcceptors(String title, String content) {
+        if (userNotificationSender == null) {
+            return;
+        }
+        try {
+            List<Long> acceptorIds = jdbcTemplate.queryForList(
+                    """
+                    SELECT DISTINCT ru.user_id FROM sys_role_user ru
+                    INNER JOIN sys_role r ON r.id = ru.role_id AND r.deleted = 0 AND r.role_code = ?
+                    INNER JOIN sys_user u ON u.id = ru.user_id AND u.deleted = 0 AND u.status = 1
+                    """,
+                    Long.class, ROLE_ACCEPTOR);
+            userNotificationSender.notifyUsers(acceptorIds, title, content,
+                    BIZ_APPEAL, null, null);
+        } catch (Exception e) {
+            log.warn("发送受理员申诉提醒失败: {}", e.getMessage());
+        }
+    }
+
     private void finalizeApproved(AppealApply appeal, String opinion) {
         appeal.setAppealStatus(TimeoutAppealConstant.STATUS_APPROVED);
         appeal.setFinalResult(TimeoutAppealConstant.RESULT_APPROVED);
@@ -435,7 +536,11 @@ public class TimeoutAppealServiceImpl implements TimeoutAppealService {
         Long count = appealApplyMapper.selectCount(new LambdaQueryWrapper<AppealApply>()
                 .eq(AppealApply::getCaseId, caseId)
                 .eq(AppealApply::getApplyType, TimeoutAppealConstant.APPLY_TYPE)
-                .eq(AppealApply::getIsDeleted, 0));
+                .eq(AppealApply::getIsDeleted, 0)
+                .in(AppealApply::getAppealStatus,
+                        TimeoutAppealConstant.STATUS_PENDING_DEPT,
+                        TimeoutAppealConstant.STATUS_PENDING_DISPATCHER,
+                        TimeoutAppealConstant.STATUS_PENDING_ACCEPTOR));
         return count != null && count > 0;
     }
 

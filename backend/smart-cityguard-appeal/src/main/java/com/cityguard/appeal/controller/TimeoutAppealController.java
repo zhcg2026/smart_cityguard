@@ -58,13 +58,13 @@ public class TimeoutAppealController {
     }
 
     @Operation(summary = "申诉详情")
-    @GetMapping("/detail/{id}")
+    @GetMapping("/detail/{id:\\d+}")
     public Result<TimeoutAppealDetailVo> detail(@PathVariable Long id) {
         return Result.success(timeoutAppealService.getDetail(id, currentUser()));
     }
 
     @Operation(summary = "按案件查询申诉")
-    @GetMapping("/by-case/{caseId}")
+    @GetMapping("/by-case/{caseId:\\d+}")
     public Result<AppealApply> byCase(@PathVariable Long caseId) {
         return Result.success(timeoutAppealService.getByCaseId(caseId));
     }
