@@ -33,10 +33,15 @@ const statusLabel = (s) =>
     pending_register: '待立案',
     pending_dispatch: '待派遣',
     pending_handle: '待处置',
+    handling: '处置中',
+    suspended: '挂起中',
     handle_finish: '待部门确认',
     pending_check: '待核实',
+    checking: '核查中',
     closed: '已结案',
-    not_accepted: '不受理'
+    forced_close: '已结案',
+    not_accepted: '不受理',
+    returned: '已退回'
   }[s] || s)
 
 function goBack() {

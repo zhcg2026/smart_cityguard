@@ -39,6 +39,44 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
+/* 强制浅色模式，防止手机深色模式影响 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light !important;
+  }
+  html, body, #app {
+    background-color: #f7f8fa !important;
+    color: #323233 !important;
+  }
+}
+
+/* Vant 组件强制浅色背景 */
+.van-cell-group,
+.van-field,
+.van-cell,
+.van-button--default,
+.van-picker {
+  background-color: #fff !important;
+  color: #323233 !important;
+}
+
+.van-tabbar {
+  background-color: #fff !important;
+}
+
+/* Vant Toast 强制深色背景白字 */
+.van-toast {
+  background: rgba(50, 50, 50, 0.88) !important;
+  color: #fff !important;
+}
+.van-toast--text {
+  background: rgba(50, 50, 50, 0.88) !important;
+  color: #fff !important;
+}
+.van-toast__text {
+  color: #fff !important;
+}
+
 /* 上传失败 Toast：避免默认白底看不清 */
 .upload-fail-toast,
 .upload-success-toast {

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="report-page">
     <van-nav-bar title="问题上报" left-arrow @click-left="goBack" />
 
@@ -79,12 +79,21 @@
         <div :key="mapRenderKey" ref="mapBoxRef" class="amap-box" />
         <div class="map-actions">
           <van-button size="small" type="primary" plain block @click="locateOnMap">
-            定位到当前位置
+            高德定位
           </van-button>
           <van-button size="small" type="default" plain block @click="browserLocateFallback">
             浏览器定位（备用）
           </van-button>
         </div>
+        <van-notice-bar
+          v-if="!isSecureContext"
+          wrapable
+          color="#ed6a0c"
+          background="#fffbe8"
+          left-icon="warning-o"
+        >
+          当前为 HTTP 环境，浏览器定位可能受限。建议使用高德定位或在地图上直接点选位置。
+        </van-notice-bar>
         <van-notice-bar v-if="!amapKeyConfigured" wrapable left-icon="info-o" color="#1989fa" background="#ecf9ff">
           未配置高德 Key 时地图不可用：请在 frontend/collector-app 下复制 .env.example 为 .env.local，填写 VITE_AMAP_KEY（及安全密钥），重启 dev 服务。
         </van-notice-bar>
@@ -166,9 +175,10 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'Report' })
 import { ref, reactive, onMounted, nextTick, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { showToast, showLoadingToast, showDialog, closeToast } from 'vant'
+import { showToast, showSuccessToast, showLoadingToast, showDialog, closeToast } from 'vant'
 import { showUploadFailure, showUploadSuccess } from '@/utils/uploadFeedback'
 import { getCategoryBigList, getCategorySmallList, getConditions, reportCase, uploadFile } from '@/api/case'
 import { getCollectorRespGrids, checkPointInArea } from '@/api/geo'
@@ -186,6 +196,7 @@ let geocoderInst = null
 let AMapRef = null
 
 const amapKeyConfigured = computed(() => Boolean(import.meta.env.VITE_AMAP_KEY))
+const isSecureContext = computed(() => window.isSecureContext)
 
 const CATEGORY_TYPE_OPTIONS = [
   { text: '部件', value: 'component', apiType: 1 },
@@ -665,8 +676,14 @@ function locateOnMap() {
     return
   }
   showLoadingToast({ message: '定位中...', forbidClick: true, duration: 0 })
-  AMapRef.plugin('AMap.Geolocation', () => {
-    const gl = new AMapRef.Geolocation({ enableHighAccuracy: true, timeout: 15000 })
+  try {
+    const gl = new AMapRef.Geolocation({
+      enableHighAccuracy: true,
+      timeout: 15000,
+      buttonPosition: 'RB',
+      showCircle: true,
+      showMarker: true
+    })
     gl.getCurrentPosition((status, result) => {
       closeToast()
       if (status === 'complete' && result?.position) {
@@ -676,10 +693,15 @@ function locateOnMap() {
         applyLngLatToForm(p)
         tip('定位成功')
       } else {
-        tip('定位失败，请在地图上点选位置')
+        console.warn('高德定位失败:', result?.message || result)
+        tip('定位失败，请在地图上点选位置或使用备用定位')
       }
     })
-  })
+  } catch (e) {
+    closeToast()
+    console.error('高德定位异常:', e)
+    tip('定位功能异常，请在地图上点选位置')
+  }
 }
 
 function browserLocateFallback() {
@@ -708,9 +730,18 @@ function browserLocateFallback() {
       }
       tip('已获取坐标（可能与高德地图有偏差，建议在高德地图上再点选校正）')
     },
-    () => {
+    (error) => {
       closeToast()
-      tip('定位失败，请在地图上点选或手动输入地址')
+      let msg = '定位失败，请在地图上点选或手动输入地址'
+      if (error.code === 1) {
+        msg = '定位被拒绝，请在浏览器设置中允许位置权限'
+      } else if (error.code === 2) {
+        msg = '无法获取位置信息'
+      } else if (error.code === 3) {
+        msg = '定位超时，请重试'
+      }
+      tip(msg)
+      console.warn('浏览器定位失败:', error)
     },
     { enableHighAccuracy: true, timeout: 15000 }
   )

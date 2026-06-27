@@ -7,7 +7,7 @@
     </van-nav-bar>
 
     <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
-      <van-list v-model:loading="loading" :finished="finished" finished-text="没有更多了" @load="loadMessages">
+      <van-list v-model:loading="loading" :finished="finished" :finished-text="messageList.length > 0 ? '没有更多了' : ''" @load="loadMessages">
         <van-cell v-for="item in messageList" :key="item.id" :title="item.msgTitle" :label="item.msgContent" :value="formatTime(item.msgTime || item.createTime)" is-link @click="viewMessage(item)">
           <template v-if="item.msgStatus !== 'read'" #icon>
             <div class="unread-dot" />

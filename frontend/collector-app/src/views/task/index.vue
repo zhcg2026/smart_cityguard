@@ -65,13 +65,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+defineOptions({ name: 'Task' })
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { getCheckTaskList, getVerifyTaskList } from '@/api/task'
 import { buildTaskListLabel } from '@/utils/taskTimer'
 
 const router = useRouter()
-const activeTab = ref(0)
+const route = useRoute()
+const activeTab = ref(route.query.tab === 'verify' ? 1 : 0)
+
+watch(() => route.query.tab, (val) => {
+  activeTab.value = val === 'verify' ? 1 : 0
+})
 
 const checkTasks = ref([])
 const checkLoading = ref(false)

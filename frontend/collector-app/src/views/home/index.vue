@@ -3,7 +3,7 @@
     <!-- 头部 -->
     <div class="header">
       <div class="user-info">
-        <van-image round width="40" height="40" :src="userInfo.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+        <van-image round width="60" height="60" :src="userInfo.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
         <div class="info">
           <div class="name">{{ userInfo.realName || '采集员' }}</div>
           <div class="grid">{{ gridDisplayName }}</div>
@@ -99,6 +99,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'Home' })
 import { ref, computed, onMounted, onBeforeUnmount, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -140,10 +141,15 @@ const statusLabel = (s) =>
     pending_register: '待立案',
     pending_dispatch: '待派遣',
     pending_handle: '待处置',
+    handling: '处置中',
+    suspended: '挂起中',
     handle_finish: '待部门确认',
     pending_check: '待核实',
+    checking: '核查中',
     closed: '已结案',
-    not_accepted: '不受理'
+    forced_close: '已结案',
+    not_accepted: '不受理',
+    returned: '已退回'
   }[s] || s)
 
 function formatTaskDeadlineLine(task) {
@@ -277,11 +283,11 @@ function goMessage() {
     align-items: center;
 
     .info {
-      margin-left: 12px;
+      margin-left: 16px;
       color: #fff;
 
       .name {
-        font-size: 16px;
+        font-size: 18px;
         font-weight: bold;
       }
 

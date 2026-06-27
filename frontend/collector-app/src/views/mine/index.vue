@@ -26,7 +26,7 @@
 
     <!-- 统计数据（采集员） -->
     <van-grid v-if="showCollectorMenu" :column-num="3" class="stat-grid">
-      <van-grid-item :text="stats.reportCount">
+      <van-grid-item :text="stats.reportCount" @click="router.push('/mine/report')">
         <template #icon>
           <van-icon name="edit" color="#1989fa" />
         </template>
@@ -35,21 +35,21 @@
           <div class="stat-label">上报数</div>
         </template>
       </van-grid-item>
-      <van-grid-item>
+      <van-grid-item @click="router.push('/task?tab=check')">
         <template #icon>
           <van-icon name="todo-list-o" color="#ff976a" />
         </template>
         <template #text>
-          <div class="stat-num">{{ stats.verifyCount }}</div>
+          <div class="stat-num">{{ stats.checkCount }}</div>
           <div class="stat-label">核查数</div>
         </template>
       </van-grid-item>
-      <van-grid-item>
+      <van-grid-item @click="router.push('/task?tab=verify')">
         <template #icon>
           <van-icon name="checked" color="#07c160" />
         </template>
         <template #text>
-          <div class="stat-num">{{ stats.checkCount }}</div>
+          <div class="stat-num">{{ stats.verifyCount }}</div>
           <div class="stat-label">核实数</div>
         </template>
       </van-grid-item>
@@ -76,6 +76,7 @@
 </template>
 
 <script setup>
+defineOptions({ name: 'Mine' })
 import { ref, computed, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showDialog, showToast, showLoadingToast, closeToast } from 'vant'
@@ -113,7 +114,6 @@ const avatarActions = [
   { name: '拍照', value: 'camera' },
   { name: '从相册选择', value: 'album' }
 ]
-const fileInput = ref(null)
 
 function goMessage() {
   router.push('/message')
@@ -151,8 +151,8 @@ async function loadStats() {
   try {
     const [caseRes, checkRes, verifyRes] = await Promise.all([
       getMyCaseList({ pageNum: 1, pageSize: 1 }),
-      getCheckTaskList({ pageNum: 1, pageSize: 1 }),
-      getVerifyTaskList({ pageNum: 1, pageSize: 1 })
+      getCheckTaskList({ pageNum: 1, pageSize: 1, status: 0 }),
+      getVerifyTaskList({ pageNum: 1, pageSize: 1, status: 0 })
     ])
     stats.value.reportCount = caseRes.data?.total || 0
     stats.value.checkCount = checkRes.data?.total || 0
@@ -238,6 +238,10 @@ async function handleLogout() {
 
 .stat-grid {
   margin: 20px 0;
+
+  :deep(.van-grid-item__content) {
+    cursor: pointer;
+  }
 
   .stat-num {
     font-size: 20px;

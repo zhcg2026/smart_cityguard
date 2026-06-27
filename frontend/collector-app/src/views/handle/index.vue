@@ -164,14 +164,19 @@ async function loadContent() {
 }
 
 const statusMap = {
+  pending_verify: '待核查',
+  pending_register: '待立案',
+  pending_dispatch: '待派遣',
+  pending_handle: '待处置',
   handling: '处置中',
-  suspended: '挂账中',
+  suspended: '挂起中',
   handle_finish: '待部门确认',
   pending_check: '待核实',
+  checking: '核查中',
   closed: '已结案',
   forced_close: '已结案',
-  pending_handle: '待处置',
-  returned: '已回退'
+  not_accepted: '不受理',
+  returned: '已退回'
 }
 
 function statusLabel(s) {
