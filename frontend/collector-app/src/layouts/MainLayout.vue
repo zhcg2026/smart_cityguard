@@ -6,10 +6,11 @@
       </keep-alive>
     </router-view>
 
-    <van-tabbar v-if="showTabbar" v-model="active" fixed @change="handleChange">
+    <van-tabbar v-if="showTabbar" route fixed>
       <van-tabbar-item
-        v-for="(tab, index) in tabs"
+        v-for="tab in tabs"
         :key="tab.path"
+        :to="tab.path"
         :icon="tab.icon"
       >
         {{ tab.label }}
@@ -19,15 +20,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { isHandlerMobileUser, isCollectorMobileUser, isDeptMobileUser } from '@/utils/roleAccess'
 
-const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const active = ref(0)
 
 const tabs = computed(() => {
   const roles = userStore.roles?.length ? userStore.roles : userStore.userInfo?.roles || []
@@ -79,20 +78,6 @@ const showTabbar = computed(() => {
   const p = route.path
   return !p.startsWith('/handle/') && !p.startsWith('/task/verify/') && !p.startsWith('/task/check/') && !p.startsWith('/appeal/submit/') && !p.match(/^\/appeal\/\d+$/)
 })
-
-watch(
-  () => [route.path, tabs.value],
-  () => {
-    const idx = tabs.value.findIndex((t) => t.path === route.path)
-    active.value = idx >= 0 ? idx : 0
-  },
-  { immediate: true }
-)
-
-function handleChange(index) {
-  const tab = tabs.value[index]
-  if (tab) router.push(tab.path)
-}
 </script>
 
 <style scoped>
